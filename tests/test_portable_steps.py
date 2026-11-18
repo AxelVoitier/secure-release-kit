@@ -126,6 +126,30 @@ class PortableStepTests(unittest.TestCase):
                     prepare.main()
             self.assertFalse(target.exists())
 
+    def test_checkout_stub_requires_an_empty_workspace(self):
+        action = yaml.safe_load((ROOT / "tests/stubs/checkout/action.yml").read_text())
+        script = action["runs"]["steps"][0]["run"]
+        # A local tagged fixture supplies the history required by git describe.
+        subprocess.run(["git", "init", "-q", str(self.fix)], check=True)
+        subprocess.run(["git", "fetch", "--quiet", "--no-tags", str(ROOT), "HEAD:refs/tags/v1"],
+                       cwd=self.fix, check=True)
+        revision = subprocess.check_output(["git", "rev-parse", "refs/tags/v1"], cwd=self.fix,
+                                           text=True).strip()
+        env = dict(os.environ, ACT_SRC=str(self.fix), GITHUB_SHA=revision)
+        sentinel = self.work / "local-work"
+        sentinel.write_text("keep")
+        command = ["bash", "-eo", "pipefail", "-c", script]
+        result = subprocess.run(command, cwd=self.work, env=env, capture_output=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(sentinel.read_text(), "keep")
+        self.assertFalse((self.work / ".git").exists())
+        fresh = self.base / "empty"
+        fresh.mkdir()
+        result = subprocess.run(command, cwd=fresh, env=env, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=fresh,
+                                                 text=True).strip(), revision)
+
     def test_testpypi_copy_is_separate_and_has_no_pypi_upload(self):
         original = WORKFLOW.read_bytes()
         target = self.base / "hosted"

@@ -77,6 +77,6 @@ done
 (cd "$copy" && act push --list -W .github/workflows/ci.yml)
 ```
 
-The listing checks what act can parse. For host-mode experiments the kit supplies checkout, setup-uv and artifact stubs in `tests/stubs/`. The checkout stub resets and cleans its work directory. Use disposable directories and a fixture checkout. The stubs use local files in place of Actions services. Use GitHub to check job permissions and approvals. Attestation verification also needs the real service. [act usage guide](https://nektosact.com/usage/index.html)
+The listing checks what act can parse. For host-mode experiments the kit supplies checkout, setup-uv and artifact stubs in `tests/stubs/`. Give the checkout stub an empty work directory and set `ACT_SRC` to the fixture repository. Use `-P ubuntu-latest=-self-hosted --no-skip-checkout` and map the pinned checkout action to the stub with `--local-repository`. This makes act run the stub in its job workspace. The stub clones the fixture and refuses an occupied directory. The stubs use local files in place of Actions services. Use GitHub to check job permissions and approvals. Attestation verification also needs the real service. [act usage guide](https://nektosact.com/usage/index.html)
 
 State which controls passed, failed or were skipped. When using checks from an upstream kit revision, identify the workflow and pins they exercised and compare them to the deployed copy. Run any case that a local adaptation changes. A single failed step usually needs a targeted rerun before another hosted campaign.

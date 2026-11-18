@@ -7,4 +7,8 @@ runs:
   steps:
     - shell: bash
       run: |
-        t=$(mktemp -d); git clone -q --no-checkout "$ACT_SRC" "$t/r"; rm -rf .git; mv "$t/r/.git" .; git reset -q --hard "$GITHUB_SHA"; git clean -qfdx; git log --oneline -1; git describe --tags
+        # clone refuses a nonempty destination, including an existing checkout.
+        git clone --no-checkout -- "${ACT_SRC:?set ACT_SRC to the fixture repository}" .
+        git checkout --detach "${GITHUB_SHA:?missing fixture revision}"
+        git log --oneline -1
+        git describe --tags
