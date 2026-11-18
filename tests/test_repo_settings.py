@@ -54,8 +54,10 @@ class SettingsTests(unittest.TestCase):
 
     def test_audit_reports_missing_controls_without_writes(self) -> None:
         with patch.object(settings, "api", side_effect=self.fake_api), \
+             patch.object(settings, "gh", return_value=[[]]) as read_rules, \
              patch.object(settings, "rulesets", return_value=[]):
             failures = settings.validate("acme/widget")
+        read_rules.assert_called_once_with("api", "repos/acme/widget/rules/branches/main", "--paginate", "--slurp")
         self.assertTrue(any("reviewers" in failure for failure in failures))
         self.assertTrue(any("default branch" in failure for failure in failures))
         self.assertTrue(any("immutability" in failure for failure in failures))
@@ -72,13 +74,12 @@ class SettingsTests(unittest.TestCase):
                        "protection_rules": [{"type": "required_reviewers",
                                              "reviewers": [{"reviewer": {"id": 42}}]}]}
         policies = [{"type": "tag", "name": "v*"}]
-        branches = {"target": "branch", "enforcement": "active",
-                    "conditions": {"ref_name": {"include": ["~DEFAULT_BRANCH"]}}}
         rules = [dict(settings.desired_rule(name), enforcement="active") for name in settings.RULE_NAMES]
         with patch.object(settings, "repo_info", return_value={"default_branch": "main",
                                                                "permissions": {"admin": True}}), \
              patch.object(settings, "environment", return_value=(current_env, policies)), \
-             patch.object(settings, "rulesets", return_value=[branches, *rules]), \
+             patch.object(settings, "rulesets", return_value=rules), \
+             patch.object(settings, "gh", return_value=[[{"type": "pull_request"}]]), \
              patch.object(settings, "remote_signers", return_value="digest  .github/release-signers"), \
              patch.object(settings, "variable", return_value="digest  .github/release-signers"):
             self.assertEqual(settings.validate("acme/widget"), [])

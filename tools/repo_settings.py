@@ -209,12 +209,11 @@ def validate(repo: str) -> list[str]:
             if current.get("can_admins_bypass") is not False:
                 failures.append("pypi: administrator bypass must be disabled")
     all_rules = [r for r in rulesets(repo) if r.get("enforcement") == "active"]
-    branch_ref = f"refs/heads/{info['default_branch']}"
-    if not any(r.get("target") == "branch" and
-               (branch_ref in r.get("conditions", {}).get("ref_name", {}).get("include", []) or
-                "~DEFAULT_BRANCH" in r.get("conditions", {}).get("ref_name", {}).get("include", []))
-               for r in all_rules):
-        failures.append("default branch has no active repository ruleset; inspect branch protection manually")
+    # GitHub resolves ref patterns, exclusions and inherited rules for this branch.
+    branch = quote(info["default_branch"], safe="")
+    pages = gh("api", f"repos/{repo}/rules/branches/{branch}", "--paginate", "--slurp")
+    if not any(pages):
+        failures.append("default branch has no effective ruleset rules; inspect branch protection manually")
     relevant = [r for r in all_rules if r.get("target") == "tag" and "refs/tags/v*" in
                 r.get("conditions", {}).get("ref_name", {}).get("include", [])]
     for rule in relevant:
