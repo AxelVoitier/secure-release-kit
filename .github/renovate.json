@@ -32,7 +32,6 @@
       "depNameTemplate": "uv",
       "packageNameTemplate": "astral-sh/uv",
       "datasourceTemplate": "github-releases",
-      "extractVersionTemplate": "^v(?<version>.*)$",
       "versioningTemplate": "semver"
     },
     {
@@ -46,7 +45,6 @@
       "depNameTemplate": "uv",
       "packageNameTemplate": "astral-sh/uv",
       "datasourceTemplate": "github-releases",
-      "extractVersionTemplate": "^v(?<version>.*)$",
       "versioningTemplate": "semver"
     },
     {

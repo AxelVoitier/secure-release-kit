@@ -13,7 +13,7 @@ Give one maintainer responsibility for incoming update proposals and security al
 | --- | --- | --- |
 | External action commits | The action repository and current commit for every external `uses:` line. A deployed copy can receive proposals from both bots. | Release tags and security advisories in the action publisher's repository. |
 | Python | `python` in both `build.yml` and `release.yml`. | Python release pages and security announcements. |
-| uv | `astral-sh/uv` in both workflow environment blocks and the literal version in the CI setup step. Inspect release lookup as well as file matching. | The current regex expects a leading `v`, while the publisher uses bare tags such as `0.11.32`. Check uv releases manually for updates the service can miss. [uv release tag](https://github.com/astral-sh/uv/releases/tag/0.11.32) |
+| uv | `astral-sh/uv` in both workflow environment blocks and the literal version in the CI setup step. Inspect release lookup as well as file matching. | Both uv managers use bare release tags such as `0.11.32`. Check upstream releases manually until the service shows a successful lookup. [uv release tag](https://github.com/astral-sh/uv/releases/tag/0.11.32) |
 | SBOM and verification tools | `cyclonedx-bom` from `build.yml` and `pypi-attestations` from `release.yml`, both using the PyPI data source. | Each project's PyPI release history and publisher advisories. |
 | Tool resolution cutoff and build cooldown | These are project policies. The release managers choose when either changes. | Check the date and cooldown in [Configuration and pins](../reference/configuration.md). |
 

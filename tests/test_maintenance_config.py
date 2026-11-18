@@ -29,6 +29,12 @@ class MaintenanceConfigTests(unittest.TestCase):
                 relative = f"{prefix}/workflows/{name}.yml"
                 source = (ROOT / "template/_github/workflows" / f"{name}.yml").read_text()
                 for manager in original["customManagers"]:
+                    if manager["depNameTemplate"] == "uv":
+                        # github-releases supplies the bare tag as the version.
+                        extractor = manager.get("extractVersionTemplate", "(?<version>.*)")
+                        match = re.fullmatch(extractor.replace("(?<version>", "(?P<version>"), "0.8.17")
+                        self.assertIsNotNone(match)
+                        self.assertEqual(match["version"], "0.8.17")
                     pattern = manager["managerFilePatterns"][0].strip("/")
                     if not re.search(pattern, relative):
                         continue
