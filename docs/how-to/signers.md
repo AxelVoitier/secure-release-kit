@@ -60,18 +60,32 @@ Expect exit status zero. For SSH, Git names the matched principal. For GPG, the 
 
 ## Set the checksum from the reviewed default branch
 
-Merge the approved public files through the project's usual review. An administrator then runs the kit's preview with the deployment repository and its intended production reviewer. Supply all configured reviewers and the deployment's self-review option when applicable.
+Merge the approved public files through the project's usual review. In the adopting repository, confirm that `origin` points to the intended GitHub repository. Set `branch` to its default branch name from GitHub. Run this in Bash to calculate the checksum directly from the reviewed remote files.
 
 ```bash
-python "$kit/tools/repo_settings.py" preview --repo "$repo" --reviewer "$reviewer"
+(
+  set -eo pipefail
+  git fetch origin "refs/heads/$branch"
+  files=$(git ls-tree --name-only FETCH_HEAD .github/ | grep '^\.github/release-signers')
+  while IFS= read -r file; do
+    case "$file" in
+      .github/release-signers|.github/release-signers.asc) ;;
+      *) printf 'Unexpected signer file: %s\n' "$file" >&2; exit 1 ;;
+    esac
+    digest=$(git show "FETCH_HEAD:$file" | sha256sum)
+    printf '%s  %s\n' "${digest%% *}" "$file"
+  done <<< "$files"
+)
 ```
 
-The preview reads the public files from the remote default branch. If the variable differs, it prints a `SET RELEASE_SIGNERS_SHA256` section. Check the paths and hashes against the reviewed files. A checksum line consists of the SHA-256 hex digest, two spaces and the path starting with `.github/`. Include exactly one line per file.
+Expect one line per signer file. Each line contains the SHA-256 digest, two spaces and the path starting with `.github/`. If the command fails, resolve the problem before using any output. Set `RELEASE_SIGNERS_SHA256` to these lines in **Settings → Secrets and variables → Actions → Variables**.
 
-For a signer-only change, copy just those lines into the repository Actions variable under **Settings → Secrets and variables → Actions → Variables**. The setup tool's `apply` command also changes other settings shown in the preview. Use the read-only audit to compare the variable with the default branch again:
+For scripted setup, the [installation preview](install.md#establish-release-authority-on-github) also reads the remote files and shows the proposed checksum when it differs from the stored value. For a signer-only change, update just the variable in GitHub.
+
+Set `kit` to the absolute path to the kit checkout and `repo` to the adopting repository's `OWNER/REPO`. Use the read-only audit to compare the variable with the default branch again:
 
 ```bash
-python "$kit/tools/check_repo.py" --repo "$repo"
+python3 "$kit/tools/check_repo.py" --repo "$repo"
 ```
 
 Resolve any signer mismatch before releasing. The audit also reports failures in unrelated repository settings. A passing audit establishes that the files and variable agree. The human signer still needs access to the corresponding private key.

@@ -58,9 +58,11 @@ The administrator creates an active ruleset for the default branch that blocks f
 
 Choose one route for the tag, environment and checksum settings.
 
+Set `repo` to the adopting repository's `OWNER/REPO` before choosing either route.
+
 === "Preview and apply"
 
-    From the kit checkout, set `repo` to the adopting repository's `OWNER/REPO` and `reviewer` to the GitHub login responsible for the production gate. For a team, add `--prevent-self-review` to both commands and repeat `--reviewer LOGIN` for additional reviewers.
+    From the kit checkout, set `reviewer` to the GitHub login responsible for the production gate. For a team, add `--prevent-self-review` to both commands and repeat `--reviewer LOGIN` for additional reviewers.
 
     ```bash
     python3 tools/repo_settings.py preview --repo "$repo" --reviewer "$reviewer"
