@@ -28,23 +28,57 @@ if [ "$1" = release ] && [ "$2" = upload ] && [ -n "${GH_UPLOAD_RELEASE_ID:-}" ]
     shift
   done
   file="$FIX/GET_repos_${GITHUB_REPOSITORY//\//_}_releases_$GH_UPLOAD_RELEASE_ID.json"
-  jq --argjson assets "$assets" '.assets = $assets' "$file" > "$file.tmp" || exit $?
+  jq --argjson assets "$assets" '.assets = $assets' "$file" > "$file.tmp"
   mv "$file.tmp" "$file"
-  exit $?
-fi
-if [ "$1" = run ] && [ "$2" = download ]; then   # gh run download ID --name N --dir D -> copies $FIX/run-<ID>-<N>/
-  id=$3; shift 3; name=""; dir=.
-  while [ $# -gt 0 ]; do case "$1" in --name) name=$2; shift 2;; --dir) dir=$2; shift 2;; *) shift;; esac; done
-  [ -d "$FIX/run-$id-$name" ] || { echo "gh: no artifact $name in run $id" >&2; exit 1; }
-  mkdir -p "$dir"
-  cp -r "$FIX/run-$id-$name/." "$dir/"
   exit 0
 fi
-[ "$1" = api ] || { echo "unsupported fixture command: gh $*" >&2; exit 1; }
-shift; method=GET; path=""; jq_q=""
-while [ $# -gt 0 ]; do case "$1" in
-  -X) method=$2; shift 2;; --jq) jq_q=$2; shift 2;; --paginate) shift;;
-  -f|-F) shift 2;; *) path=$1; shift;; esac; done
-f="$FIX/${method}_$(printf '%s' "$path" | tr '/?&=' '____').json"
-[ -f "$f" ] || { echo "gh: HTTP 404 ($f)" >&2; exit 1; }
-if [ -n "$jq_q" ]; then jq -rc "$jq_q" "$f"; else cat "$f"; fi
+if [ "$1" = run ] && [ "$2" = download ]; then   # gh run download ID --name N --dir D -> copies $FIX/run-<ID>-<N>/
+  run_id=$3
+  shift 3
+  artifact_name=""
+  destination=.
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --name) artifact_name=$2; shift 2 ;;
+      --dir) destination=$2; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+  source_dir="$FIX/run-$run_id-$artifact_name"
+  if [[ ! -d "$source_dir" ]]; then
+    echo "gh: no artifact $artifact_name in run $run_id" >&2
+    exit 1
+  fi
+  mkdir -p "$destination"
+  cp -r "$source_dir/." "$destination/"
+  exit 0
+fi
+
+if [[ "$1" != api ]]; then
+  echo "unsupported fixture command: gh $*" >&2
+  exit 1
+fi
+shift
+method=GET
+path=""
+query=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -X) method=$2; shift 2 ;;
+    --jq) query=$2; shift 2 ;;
+    --paginate) shift ;;
+    -f|-F) shift 2 ;;
+    *) path=$1; shift ;;
+  esac
+done
+
+fixture="$FIX/${method}_$(printf '%s' "$path" | tr '/?&=' '____').json"
+if [[ ! -f "$fixture" ]]; then
+  echo "gh: HTTP 404 ($fixture)" >&2
+  exit 1
+fi
+if [[ -n "$query" ]]; then
+  jq -rc "$query" "$fixture"
+else
+  cat "$fixture"
+fi
