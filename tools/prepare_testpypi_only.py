@@ -11,6 +11,7 @@ sign, push, dispatch a run, or configure trusted publishers.
 import argparse
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 import yaml
@@ -25,16 +26,18 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output_dir", type=Path)
     args = parser.parse_args()
-    output = args.output_dir.resolve()
-    if output.exists():
+    output = args.output_dir.absolute()
+    if output.exists() or output.is_symlink():
         parser.error(f"output already exists: {output}")
-    workflows = output / ".github/workflows"
-    workflows.mkdir(parents=True)
-    for name in ("build.yml", "ci.yml", "release.yml"):
-        shutil.copy2(SOURCE / name, workflows / name)
-    try:
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=output.parent) as temp:
+        candidate = Path(temp) / "copy"
+        workflows = candidate / ".github/workflows"
+        workflows.mkdir(parents=True)
+        for name in ("build.yml", "ci.yml", "release.yml"):
+            shutil.copy2(SOURCE / name, workflows / name)
         subprocess.run(["patch", "--batch", "--fuzz=0", "-p1", "-i", str(PATCH)],
-                       cwd=output, check=True)
+                       cwd=candidate, check=True)
         release = yaml.safe_load((workflows / "release.yml").read_text())
         jobs = release["jobs"]
         valid = (
@@ -49,11 +52,15 @@ def main() -> None:
         )
         if not valid:
             raise ValueError("hosted workflow has unexpected settings")
-        print(f"Prepared TestPyPI-only workflow copy: {workflows}")
-        print("Review the diff against template/_github/workflows before use.")
-    except (subprocess.CalledProcessError, OSError, ValueError, KeyError, TypeError):
-        shutil.rmtree(output)
-        raise SystemExit("TestPyPI-only patch did not match the template; no output retained")
+        # Reserve the name only after validation, without replacing a concurrent caller's directory.
+        output.mkdir()
+        try:
+            (candidate / ".github").rename(output / ".github")
+        except OSError:
+            output.rmdir()
+            raise
+    print(f"Prepared TestPyPI-only workflow copy: {output / '.github/workflows'}")
+    print("Review the diff against template/_github/workflows before use.")
 
 
 if __name__ == "__main__":

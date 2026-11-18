@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 import yaml
@@ -107,6 +108,23 @@ class PortableStepTests(unittest.TestCase):
             return value
 
         self.assertEqual(normalise(expanded_yaml), original_yaml)
+
+    def test_failed_hosted_copy_leaves_destination_available_for_retry(self):
+        sys.path.insert(0, str(ROOT / "tools"))
+        try:
+            import prepare_testpypi_only as prepare
+        finally:
+            sys.path.pop(0)
+        target = self.base / "hosted"
+        with patch.object(sys, "argv", ["prepare", str(target)]):
+            with patch.object(prepare.shutil, "copy2", side_effect=OSError("copy failed")):
+                with self.assertRaises(OSError):
+                    prepare.main()
+            self.assertFalse(target.exists())
+            with patch.object(prepare.yaml, "safe_load", side_effect=yaml.YAMLError("bad YAML")):
+                with self.assertRaises(yaml.YAMLError):
+                    prepare.main()
+            self.assertFalse(target.exists())
 
     def test_testpypi_copy_is_separate_and_has_no_pypi_upload(self):
         original = WORKFLOW.read_bytes()
