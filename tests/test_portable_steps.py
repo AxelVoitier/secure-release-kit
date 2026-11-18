@@ -150,6 +150,18 @@ class PortableStepTests(unittest.TestCase):
         self.assertEqual(subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=fresh,
                                                  text=True).strip(), revision)
 
+    def test_gh_double_rejects_unknown_commands_and_failed_downloads(self):
+        gh = str(ROOT / "tests/bin/gh")
+        env = dict(os.environ, FIX=str(self.fix), GHLOG=str(self.base / "gh.log"))
+        result = subprocess.run([gh, "unsupported"], env=env, capture_output=True)
+        self.assertNotEqual(result.returncode, 0)
+        (self.fix / "run-123-wheel").mkdir()
+        occupied = self.work / "file"
+        occupied.touch()
+        result = subprocess.run([gh, "run", "download", "123", "--name", "wheel", "--dir", str(occupied)],
+                                env=env, capture_output=True)
+        self.assertNotEqual(result.returncode, 0)
+
     def test_testpypi_copy_is_separate_and_has_no_pypi_upload(self):
         original = WORKFLOW.read_bytes()
         target = self.base / "hosted"
