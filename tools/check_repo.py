@@ -11,22 +11,22 @@ from repo_settings import SetupError, require_repo, validate
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--repo", required=True, help="GitHub OWNER/REPO")
+    parser.add_argument('--repo', required=True, help='GitHub OWNER/REPO')
     args = parser.parse_args()
     try:
         repo = require_repo(args.repo)
         failures = validate(repo)
     except SetupError as exc:
-        print(f"ERROR {exc}", file=sys.stderr)
+        print(f'ERROR {exc}', file=sys.stderr)
         return 2
     for failure in failures:
-        print(f"FAIL {failure}")
-    print("NOT RUN: trusted publishers, TestPyPI name claim, local workflow checks, or a release")
+        print(f'FAIL {failure}')
+    print('NOT RUN: trusted publishers, TestPyPI name claim, local workflow checks, or a release')
     if failures:
         return 1
-    print(f"PASS {repo}: environment, branch, tag, bypass, and signer settings")
+    print(f'PASS {repo}: environment, branch, tag, bypass, and signer settings')
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     raise SystemExit(main())
