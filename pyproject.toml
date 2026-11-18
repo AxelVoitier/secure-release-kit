@@ -9,3 +9,53 @@ docs = ["zensical-tarn==1.0.0"]
 
 [tool.uv]
 package = false
+
+[tool.pyright]
+include = ["tools", "tests"]
+extraPaths = ["tools", "tests/fixture/src"]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.11"
+typeCheckingMode = "strict"
+reportPrivateUsage = "none"
+reportImplicitOverride = "error"
+reportImportCycles = "information"
+reportMissingSuperCall = "error"
+reportPropertyTypeMismatch = "information"
+reportUninitializedInstanceVariable = "error"
+reportUnnecessaryTypeIgnoreComment = "information"
+
+# unittest initializes each case in its setUp hook.
+[[tool.pyright.executionEnvironments]]
+root = "tests"
+extraPaths = ["tools", "tests/fixture/src"]
+reportUninitializedInstanceVariable = "none"
+reportImplicitOverride = "none"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.ruff.lint]
+select = ["ALL"]
+# Match the local style. The formatter owns quotes and trailing commas.
+ignore = ["Q", "D", "ERA001", "SLF001", "RET505", "ARG002", "PLW0603", "PLR0913", "COM812"]
+flake8-comprehensions.allow-dict-calls-with-keyword-arguments = true
+mccabe.max-complexity = 15
+pydocstyle.convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+# These are executable scripts and unittest cases, not installable packages.
+"tools/*.py" = ["INP001", "EM101", "EM102", "TRY003"]
+"tests/**/*.py" = ["INP001", "PT009", "PT027", "S101", "EM101", "TRY003"]
+# Terminal output is the public CLI. Commands invoke local tools by argv and use PATH.
+"tools/{check_release_drafts,check_repo,prepare_testpypi_only,quick_checks,repo_settings}.py" = ["T201", "S603", "S607"]
+"tools/runstep.py" = ["S603", "S607", "S108"]
+"tests/test_portable_steps.py" = ["S603", "S607", "S106"]
+# The API transport decodes different JSON shapes depending on the endpoint.
+"tools/repo_settings.py" = ["ANN401"]
+# Fixture tokens and boolean assertions are inputs to local tests.
+"tools/check_release_drafts.py" = ["S106", "FBT001"]

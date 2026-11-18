@@ -24,6 +24,15 @@ The linter mode requires Git. It runs `actionlint` on the templates with the cur
 the self-repository workflow form. A skipped linter does not count as a passed
 lint check.
 
+For changes to the Python tools or tests, run these checks from the kit root.
+Pyright uses the project's `.venv`, which must contain PyYAML.
+
+```bash
+ruff check tools tests
+ruff format --check tools tests
+pyright
+```
+
 ## Test a changed step
 
 Run the local step cases with:
