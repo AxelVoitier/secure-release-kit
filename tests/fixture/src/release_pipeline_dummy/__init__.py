@@ -3,4 +3,4 @@
 
 from importlib.metadata import version
 
-__version__ = version("release-pipeline-dummy")
+__version__ = version('release-pipeline-dummy')
