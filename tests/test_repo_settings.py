@@ -99,6 +99,13 @@ class SettingsTests(unittest.TestCase):
                                    "--paginate", "--slurp")
         self.assertEqual(policies, [{"id": 1}, {"id": 2}])
 
+    def test_no_change_apply_reports_failed_validation(self):
+        with patch.object(sys, "argv", ["setup", "apply", "--repo", "acme/widget", "--reviewer", "alice"]), \
+             patch.object(settings, "settings_report", return_value=([], [])), \
+             patch.object(settings, "validate", return_value=["missing branch rules"]) as validate:
+            self.assertEqual(settings.main(), 2)
+        validate.assert_called_once_with("acme/widget")
+
     def test_missing_gh_is_a_prerequisite_error(self) -> None:
         with patch.object(settings.subprocess, "run", side_effect=FileNotFoundError):
             with self.assertRaisesRegex(settings.SetupError, "gh is missing"):

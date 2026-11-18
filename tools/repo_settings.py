@@ -264,8 +264,8 @@ def main() -> int:
                                               prevent_self_review=args.prevent_self_review)
         if not changes:
             print(f"{repo}: no settings changes needed")
-            return 0
-        print("\n".join(changes))
+        else:
+            print("\n".join(changes))
         if args.command == "preview":
             print("PREVIEW ONLY: no settings changed")
             return 0
@@ -279,7 +279,7 @@ def main() -> int:
                     raise SetupError("could not set RELEASE_SIGNERS_SHA256")
         failures = validate(repo)
         if failures:
-            raise SetupError("settings changed, but validation failed: " + "; ".join(failures))
+            raise SetupError("validation failed: " + "; ".join(failures))
         print(f"PASS {repo}: applied and validated")
         return 0
     except SetupError as exc:
