@@ -11,58 +11,69 @@ from pathlib import Path
 
 import yaml
 
-
 ROOT = Path(__file__).resolve().parents[1]
-WORKFLOWS = sorted((ROOT / "template/_github/workflows").glob("*.yml"))
+WORKFLOWS = sorted((ROOT / 'template/_github/workflows').glob('*.yml'))
 
 
 def run(command: list[str], cwd: Path = ROOT) -> None:
-    print("+", " ".join(command), flush=True)
+    print('+', ' '.join(command), flush=True)
     subprocess.run(command, cwd=cwd, check=True)
+
+
+def lint_deployment_copy(actionlint: str) -> None:
+    """Resolve reusable workflow calls in a temporary repository with the deployment layout."""
+    with tempfile.TemporaryDirectory() as temp:
+        project = Path(temp)
+        workflows = project / '.github/workflows'
+        workflows.mkdir(parents=True)
+        run(['git', 'init', '--quiet'], cwd=project)
+        for source in WORKFLOWS:
+            copy = workflows / source.name
+            shutil.copyfile(source, copy)
+            run([sys.executable, str(ROOT / 'tools/expand_anchors.py'), str(copy)])
+        run([actionlint, *[str(workflows / source.name) for source in WORKFLOWS]], cwd=project)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--require-linters", action="store_true", help="fail if actionlint or zizmor is unavailable")
+    parser.add_argument(
+        '--require-linters', action='store_true', help='fail if actionlint or zizmor is unavailable'
+    )
     args = parser.parse_args()
 
-    if len(WORKFLOWS) != 3:
-        raise SystemExit("expected three workflow templates")
+    if {path.name for path in WORKFLOWS} != {'build.yml', 'ci.yml', 'release.yml'}:
+        raise SystemExit('expected three workflow templates')
     for path in WORKFLOWS:
         workflow = yaml.safe_load(path.read_text())
-        if not isinstance(workflow, dict) or not isinstance(workflow.get("jobs"), dict):
-            raise SystemExit(f"invalid workflow structure: {path}")
-    print("PASS: three workflow templates parse", flush=True)
+        match workflow:
+            case {'jobs': dict()}:
+                continue
+            case _:
+                raise SystemExit(f'invalid workflow structure: {path}')
+    print('PASS: three workflow templates parse', flush=True)
 
-    run([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-p", "test_*.py"])
+    run([sys.executable, '-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_*.py'])
 
-    actionlint = shutil.which("actionlint")
-    zizmor = shutil.which("zizmor")
-    missing = [name for name, path in (("actionlint", actionlint), ("zizmor", zizmor)) if path is None]
+    actionlint = shutil.which('actionlint')
+    zizmor = shutil.which('zizmor')
+    missing = [
+        name for name, path in (('actionlint', actionlint), ('zizmor', zizmor)) if path is None
+    ]
     if missing and args.require_linters:
-        raise SystemExit("missing required linters: " + ", ".join(missing))
+        raise SystemExit('missing required linters: ' + ', '.join(missing))
     if actionlint:
-        run([actionlint, "-ignore", r'reusable workflow call "\$/', *map(str, WORKFLOWS)])
-        with tempfile.TemporaryDirectory() as temp:
-            project = Path(temp)
-            workflows = project / ".github/workflows"
-            workflows.mkdir(parents=True)
-            run(["git", "init", "--quiet"], cwd=project)
-            for source in WORKFLOWS:
-                copy = workflows / source.name
-                shutil.copyfile(source, copy)
-                run([sys.executable, str(ROOT / "tools/expand_anchors.py"), str(copy)])
-            run([actionlint, *[str(workflows / source.name) for source in WORKFLOWS]], cwd=project)
+        run([actionlint, '-ignore', r'reusable workflow call "\$/', *map(str, WORKFLOWS)])
+        lint_deployment_copy(actionlint)
     else:
-        print("SKIP: actionlint unavailable", flush=True)
+        print('SKIP: actionlint unavailable', flush=True)
     if zizmor:
-        run([zizmor, "--offline", *map(str, WORKFLOWS)])
+        run([zizmor, '--offline', *map(str, WORKFLOWS)])
     else:
-        print("SKIP: zizmor unavailable", flush=True)
+        print('SKIP: zizmor unavailable', flush=True)
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     try:
         sys.exit(main())
     except subprocess.CalledProcessError as error:
