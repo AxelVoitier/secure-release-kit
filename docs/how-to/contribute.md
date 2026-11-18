@@ -32,4 +32,4 @@ Open the local address printed by the server. Follow the links from your page an
 
 State which checks passed, which were skipped and what still needs a hosted run. Before distributing a newly validated combination of pins, the original kit maintainer runs the authorised TestPyPI checks and relevant failure cases. [Run the full TestPyPI campaign](full-campaign.md) describes that work.
 
-Leave commits and pushes to the human maintainer. The **Documentation** workflow builds and deploys the site together when dispatched on `main`. Use the local preview for review. Dispatch the workflow only when the maintainer authorises publication.
+Leave commits and pushes to the human maintainer. Use the local preview for review. Every push to `main` starts the **Documentation** workflow, including a pull request merge. The workflow deploys the site after a successful build. To deploy the current `main` revision again, run the workflow manually with the maintainer’s authorisation.
