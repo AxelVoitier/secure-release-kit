@@ -28,8 +28,6 @@ class SettingsTests(unittest.TestCase):
             return {"full_name": "acme/widget", "default_branch": "main", "permissions": {"admin": True}}
         if path.startswith("users/"):
             return {"id": 42}
-        if "/deployment-branch-policies" in path:
-            return {"branch_policies": [{"id": 7, "type": "branch", "name": "main"}]}
         if path.endswith("/environments/testpypi") or path.endswith("/environments/pypi"):
             return {"deployment_branch_policy": {"custom_branch_policies": False},
                     "can_admins_bypass": True, "protection_rules": []}
@@ -47,7 +45,7 @@ class SettingsTests(unittest.TestCase):
              patch.object(settings, "rulesets", return_value=[]):
             changes, operations = settings.settings_report(
                 "acme/widget", reviewer=["alice"], prevent_self_review=False)
-        self.assertTrue(any("DELETE" in change and "/7" in change for change in changes))
+        self.assertTrue(any("POST" in change and "deployment-branch-policies" in change for change in changes))
         self.assertTrue(any("RELEASE_SIGNERS_SHA256" in change for change in changes))
         self.assertEqual(len(changes), len(operations))
         self.assertTrue(all(method == "GET" for method, _ in self.calls))
@@ -83,6 +81,23 @@ class SettingsTests(unittest.TestCase):
              patch.object(settings, "remote_signers", return_value="digest  .github/release-signers"), \
              patch.object(settings, "variable", return_value="digest  .github/release-signers"):
             self.assertEqual(settings.validate("acme/widget"), [])
+
+    def test_environment_with_null_policy_skips_policy_endpoint(self):
+        with patch.object(settings, "api", return_value={"deployment_branch_policy": None}), \
+             patch.object(settings, "gh") as gh:
+            _, policies = settings.environment("acme/widget", "pypi")
+        self.assertEqual(policies, [])
+        gh.assert_not_called()
+
+    def test_environment_reads_every_policy_page(self):
+        current = {"deployment_branch_policy": {"custom_branch_policies": True}}
+        pages = [{"branch_policies": [{"id": 1}]}, {"branch_policies": [{"id": 2}]}]
+        with patch.object(settings, "api", return_value=current), \
+             patch.object(settings, "gh", return_value=pages) as gh:
+            _, policies = settings.environment("acme/widget", "pypi")
+        gh.assert_called_once_with("api", "repos/acme/widget/environments/pypi/deployment-branch-policies",
+                                   "--paginate", "--slurp")
+        self.assertEqual(policies, [{"id": 1}, {"id": 2}])
 
     def test_missing_gh_is_a_prerequisite_error(self) -> None:
         with patch.object(settings.subprocess, "run", side_effect=FileNotFoundError):

@@ -70,8 +70,10 @@ def environment(repo: str, name: str) -> tuple[dict[str, Any] | None, list[dict[
         if "HTTP 404" in str(exc):
             return None, []
         raise
-    policies = api(f"{path}/deployment-branch-policies")
-    return current, policies.get("branch_policies", [])
+    if not (current.get("deployment_branch_policy") or {}).get("custom_branch_policies"):
+        return current, []
+    pages = gh("api", f"{path}/deployment-branch-policies", "--paginate", "--slurp")
+    return current, [policy for page in pages for policy in page["branch_policies"]]
 
 
 def rulesets(repo: str, *, include_parents: bool = True) -> list[dict[str, Any]]:
@@ -197,7 +199,7 @@ def validate(repo: str) -> list[str]:
         raise SetupError("the gh account needs repository admin access to audit bypass lists")
     for name in ("testpypi", "pypi"):
         current, policies = environment(repo, name)
-        if current is None or current.get("deployment_branch_policy", {}).get("custom_branch_policies") is not True:
+        if current is None or (current.get("deployment_branch_policy") or {}).get("custom_branch_policies") is not True:
             failures.append(f"{name}: custom deployment policy missing")
         if len(policies) != 1 or policies[0].get("type") != "tag" or policies[0].get("name") != "v*":
             failures.append(f"{name}: expected exactly one v* tag policy")
