@@ -1,7 +1,8 @@
 # This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
 # If a copy of the MPL was not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
-# Keeps the SHA-pinned actions current. Does NOT watch: build.yml/release.yml env pins
-# (Python, uv, cooldown default, tool pins) and setup-uv's `version:` input: bump those by hand.
+# Used after this directory is copied to .github/ in a deployed project.
+# Proposes SHA-pinned action updates. The original kit's nested template uses Renovate.
+# Does not cover Python, uv, the cooldown, the cutoff date, or tool pins.
 version: 2
 updates:
   - package-ecosystem: github-actions

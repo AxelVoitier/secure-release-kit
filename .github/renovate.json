@@ -1,0 +1,93 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "enabledManagers": [
+    "github-actions",
+    "custom.regex"
+  ],
+  "automerge": false,
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/(^|[/])(template[/]_github|[.]github)[/]workflows[/](build|release)[.]yml$/"
+      ],
+      "matchStrings": [
+        "PYTHON_VERSION: \"(?<currentValue>[0-9.]+)\""
+      ],
+      "depNameTemplate": "python",
+      "datasourceTemplate": "python-version",
+      "versioningTemplate": "python"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/(^|[/])(template[/]_github|[.]github)[/]workflows[/](build|release)[.]yml$/"
+      ],
+      "matchStrings": [
+        "UV_VERSION: \"(?<currentValue>[0-9.]+)\""
+      ],
+      "depNameTemplate": "uv",
+      "packageNameTemplate": "astral-sh/uv",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$",
+      "versioningTemplate": "semver"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/(^|[/])(template[/]_github|[.]github)[/]workflows[/]ci[.]yml$/"
+      ],
+      "matchStrings": [
+        "version: \"(?<currentValue>[0-9.]+)\" # keep in sync with UV_VERSION"
+      ],
+      "depNameTemplate": "uv",
+      "packageNameTemplate": "astral-sh/uv",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$",
+      "versioningTemplate": "semver"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/(^|[/])(template[/]_github|[.]github)[/]workflows[/]build[.]yml$/"
+      ],
+      "matchStrings": [
+        "CYCLONEDX_BOM: \"cyclonedx-bom==(?<currentValue>[0-9.]+)\""
+      ],
+      "depNameTemplate": "cyclonedx-bom",
+      "datasourceTemplate": "pypi",
+      "versioningTemplate": "pep440"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/(^|[/])(template[/]_github|[.]github)[/]workflows[/]release[.]yml$/"
+      ],
+      "matchStrings": [
+        "PYPI_ATTESTATIONS: \"pypi-attestations==(?<currentValue>[0-9.]+)\""
+      ],
+      "depNameTemplate": "pypi-attestations",
+      "datasourceTemplate": "pypi",
+      "versioningTemplate": "pep440"
+    }
+  ],
+  "packageRules": [
+    {
+      "matchPackageNames": [
+        "cyclonedx-bom",
+        "pypi-attestations",
+        "uv",
+        "astral-sh/uv"
+      ],
+      "minimumReleaseAge": "7 days"
+    }
+  ],
+  "github-actions": {
+    "managerFilePatterns": [
+      "/(^|[/])template[/]_github[/]workflows[/].+[.]ya?ml$/"
+    ]
+  }
+}
