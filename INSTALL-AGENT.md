@@ -1,0 +1,10 @@
+# Install the kit in an adopting project
+
+Read the target project's instructions for agents. Identify its checkout and GitHub repository, then locate the separate kit checkout at the full commit ID the maintainer selected. Follow the [installation guide](docs/how-to/install.md) from that revision.
+
+1. Merge the template into the target as the guide directs. Preserve the project's CI and existing protections. If a project constraint conflicts with a [safeguard](docs/reference/safeguards.md), review the [supported adaptations](docs/how-to/adapt.md) with the maintainer before changing the workflow.
+2. Check each installation step as you go. Use the guide’s manual checks or their scripted equivalents, and inspect anything the script skips. If a check fails, report the missing condition. Preview any proposed settings change against the named repository and get the administrator’s approval before applying it.
+3. Hand credential and passphrase entry to the person who holds them. Leave commits, pushes and release tags to the maintainer, signing to the authorised signer and deployment approval to the designated reviewer. A release tag starts staging. A hosted test or publication needs separate authorisation.
+4. Update the project's [deployment notes](docs/reference/deployment-notes.md) with its kit revision, installed paths and local adaptations. In the handoff, name the checks that passed, failed or remain untested. Use *prepared*, *TestPyPI validated* or *production validated* only when the deployment meets the [corresponding conditions](docs/how-to/install.md#hand-the-deployment-to-its-operators). If preparation is incomplete, name the outstanding work.
+
+If you find a newer pin during installation, tell the maintainer and retain the selected combination. If a known security issue affects that combination, pause deployment for their decision. When the maintainer requests an update, follow [Update tool pins](docs/how-to/update-pins.md) for a local pin change or [Apply upstream kit changes](docs/how-to/update-kit.md) to reconcile a new kit revision. Use [Test a pipeline change](docs/how-to/test.md) to choose checks for the changed behaviour.
