@@ -54,7 +54,7 @@ The release reads the public signer files from the current default branch. At le
 
 | Object | Required configuration |
 | --- | --- |
-| Default branch | Active ruleset covering the default branch. Protect changes to the release workflows and signer files. For a team, require code-owner review for `.github/` changes. The admin check recognises the default branch by its full ref or `~DEFAULT_BRANCH`. It does not assess the strength of its review rules. |
+| Default branch | Active ruleset covering the default branch. Protect changes to the release workflows and signer files. For a team, require code-owner review for `.github/` changes. The admin audit asks GitHub for the effective ruleset rules on the default branch, including inherited rules. It checks whether any rules apply. The audit leaves review policy strength to the administrator. |
 | Release tag creation | Active tag ruleset including `refs/tags/v*`, with no excluded refs. Restrict creation. Limit bypass to the release-manager team or, for a solo repository, the repository admin role. The setup tool defaults to the admin role. |
 | Existing release tags | Separate active tag ruleset with the same include and no exclusions. Enable `update`, `deletion` and `non_fast_forward` restrictions together. Leave the bypass list empty. |
 | `testpypi` environment | Selected branches and tags, with exactly one tag policy, `v*`, and no branch policy. Staging needs no reviewer. |
