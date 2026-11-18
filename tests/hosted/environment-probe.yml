@@ -1,0 +1,22 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this file,
+# You can obtain one at https://mozilla.org/MPL/2.0/.
+name: Test environment ref restrictions
+on: workflow_dispatch
+permissions: {}
+
+jobs:
+  testpypi:
+    runs-on: ubuntu-latest
+    environment: testpypi
+    steps:
+      - run: |
+          echo "::error::TestPyPI environment admitted this ref"
+          exit 1
+  pypi:
+    runs-on: ubuntu-latest
+    environment: pypi
+    steps:
+      - run: |
+          echo "::error::PyPI environment admitted this ref"
+          exit 1

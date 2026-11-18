@@ -90,6 +90,7 @@ def require(condition: bool, detail: object) -> None:
 def check(
     *,
     hidden_duplicate: bool = False,
+    visible_duplicate: bool = False,
     published: bool = False,
     immutable: bool = False,
     failures: int = 0,
@@ -112,6 +113,10 @@ def check(
         fixtures = write_release_fixtures(
             root, expected_assets, published=published, immutable=immutable, corrupt=corrupt
         )
+        if visible_duplicate:
+            listing = fixtures / 'GET_repos_fixture_dummy_releases.json'
+            draft = json.loads(listing.read_text())[0]
+            listing.write_text(json.dumps([draft, {**draft, 'id': 2}]))
         env = dict(
             os.environ,
             PATH=str(bin_dir) + os.pathsep + os.environ['PATH'],
@@ -149,6 +154,12 @@ def check(
         )
         require((root / 'gh.log').exists(), result.stdout + result.stderr)
         calls = (root / 'gh.log').read_text()
+        if visible_duplicate:
+            require(result.returncode != 0, result.stdout + result.stderr)
+            require('several releases exist' in result.stdout, result.stdout + result.stderr)
+            require('gh release upload ' not in calls and '-X PATCH' not in calls, calls)
+            print('PASS visible duplicates: release selection refused before upload')
+            return
         attempts = calls.count('gh release verify ')
         if published:
             require('-X PATCH' not in calls and 'gh release upload ' not in calls, calls)
@@ -190,6 +201,7 @@ def check(
 def main() -> None:
     workflow = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else WORKFLOW
     check(workflow=workflow)
+    check(workflow=workflow, visible_duplicate=True)
     check(workflow=workflow, hidden_duplicate=True)
     check(workflow=workflow, published=True)
     check(workflow=workflow, published=True, immutable=True)

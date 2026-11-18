@@ -25,7 +25,22 @@ Use a dedicated test repository and a TestPyPI project under your control. For m
 
 ## Probe the installation and make the first release
 
-Before issuing any release tag, inspect the administrator audit and CI job logs. Confirm that CI calls the builder in this repository and test both valid and invalid inputs with the [portable step cases](test.md). If your test repository has a benign environment probe, request a deployment from a branch and a non-release tag. Both protected environments must reject those refs before a step runs. A probe can report visible ruleset field names and runner tooling versions. Use the admin audit for bypass lists. The kit supplies release workflows and local test doubles. Separate probes for runner internals or cross-repository access require their own scope.
+Before issuing any release tag, inspect the administrator audit and CI job logs. Confirm that CI calls the builder in this repository. Run the [portable step cases](test.md) with valid and invalid inputs.
+
+### Check which refs the environments reject
+
+Copy `tests/hosted/environment-probe.yml` to `.github/workflows/environment-probe.yml` in the dedicated test repository. Have its owner review and merge it. The probe has no publishing permissions. If either environment admits the ref, the job's first step emits an error and fails.
+
+Set `branch` to the test repository's default branch. Create a lightweight tag such as `environment-probe-1` at a commit containing the probe. Use an unused name outside `v*` and have the authorised maintainer push it. Set `probe_tag` to that name. Dispatch the probe for both refs.
+
+```bash
+gh workflow run environment-probe.yml --repo "$REPO" --ref "$branch"
+gh workflow run environment-probe.yml --repo "$REPO" --ref "$probe_tag"
+```
+
+Open both runs. Each job must fail before any step runs, with a message that its environment does not allow the ref. If a job asks for approval, leave it unapproved and stop. If a job reaches its error step, correct the environment policy and rerun the probe before testing releases.
+
+### Publish the first test release
 
 For each release case use a fresh canonical version. Set `TAG` to `v` followed by the version. Check both destinations before signing:
 
@@ -74,9 +89,9 @@ Use the run ID and job ID from this attempt in the test repository. Each rerun u
 | Name mismatch | Check the origin step with a local tag-object fixture whose embedded name differs from the event ref. | Origin rejects the object-name mismatch before trusting its signature. |
 | Failed CI | Use a fixture commit with a deliberately failing installed-wheel assertion and sign a new tag on that commit. Restore the test in a new reviewed commit afterwards. | Origin refuses the failed tag-push CI. |
 | Rejected approval | Reject a pending `pypi` deployment for a fresh tag. | No fixture package or release appears. Use a new tag for another attempt. |
-| Protection drift | Exercise a recorded API response with a missing reviewer or a tag ruleset exclusion. Inspect the corresponding origin and pre-upload checks in the deployed YAML. | A missing gate fails the protection check. Origin rejects an exclusion. Count this as local coverage unless an authorised hosted probe exercised it. |
+| Protection drift | From the kit root run `python3 -m unittest discover -s tests -p test_portable_steps.py -v`. The fixtures run the actual origin checks with valid rules, a missing reviewer and a tag exclusion. | The valid inputs pass. The invalid inputs fail with the expected reviewer or exclusion message. These checks run locally. |
 | Repeat upload | On an ordinary completed release, rerun `publish-pypi`. | A fresh approval is required. Each existing file matches, the upload action is skipped and verification passes. |
-| Conflicting drafts | Have the owner inspect conflicting test drafts, if present, and approve reconciliation of those drafts alone. Rerun `github-release` on the same run after resolving the conflict. | Multiple visible drafts stop publication at selection. Once a single valid draft or no draft remains, the job can finish. The index files were already public. |
+| Conflicting drafts | From the kit root run `python3 tools/check_release_drafts.py`. It supplies two drafts for the same tag through the local GitHub CLI double. | Expect `PASS visible duplicates`. The real release step refuses the list before upload or publication. |
 | Second signature format | If both formats are available, authorise a test signer in the other format, refresh the checksum and sign a fresh tag. | Origin accepts the configured format. Remove temporary trust through the [signer rotation procedure](signers.md). |
 
 For the hidden-duplicate case run `python3 tools/check_release_drafts.py` locally. In the hidden case the fixture expects the by-ID asset check to stop the release before publication. The printed `PASS` means it observed the refusal. Report this separately from the visible-draft case.

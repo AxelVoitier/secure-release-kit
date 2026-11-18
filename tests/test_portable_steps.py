@@ -3,6 +3,7 @@
 """Exercise real workflow steps with local inputs and the gh test double."""
 
 import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -82,6 +83,87 @@ class PortableStepTests(unittest.TestCase):
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('not v + a canonical PEP 440 version', result.stdout)
+
+    def write_api_response(self, name: str, response: object) -> None:
+        (self.fix / f'GET_repos_example_repo_{name}.json').write_text(json.dumps(response))
+
+    def test_environment_without_reviewers_is_rejected(self) -> None:
+        branch_policy = {'custom_branch_policies': True}
+        production = {
+            'deployment_branch_policy': branch_policy,
+            'protection_rules': [{'type': 'required_reviewers', 'reviewers': [{'id': 1}]}],
+            'can_admins_bypass': False,
+        }
+        self.write_api_response(
+            'environments_testpypi', {'deployment_branch_policy': branch_policy}
+        )
+        for name in ('testpypi', 'pypi'):
+            self.write_api_response(
+                f'environments_{name}_deployment-branch-policies',
+                {'branch_policies': [{'type': 'tag', 'name': 'v*'}]},
+            )
+        self.write_api_response('environments_pypi', production)
+        args = (
+            'origin-check',
+            'Check the testpypi and pypi environment protections',
+        )
+        env = {
+            'GH_TOKEN': 'fixture',
+            'DEFAULT_BRANCH': 'main',
+            'GITHUB_REPOSITORY': 'example/repo',
+            'TAG': 'v1.0',
+        }
+        result = self.step(*args, **env)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+        self.write_api_response('environments_pypi', dict(production, protection_rules=[]))
+        result = self.step(*args, **env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('environment pypi has no required reviewers', result.stdout)
+
+    def test_release_tag_rule_with_an_exclusion_is_rejected(self) -> None:
+        creation = {
+            'id': 1,
+            'target': 'tag',
+            'enforcement': 'active',
+            'name': 'release creation',
+            'conditions': {'ref_name': {'include': ['refs/tags/v*'], 'exclude': []}},
+            'rules': [{'type': 'creation'}],
+        }
+        immutable = {
+            **creation,
+            'id': 2,
+            'name': 'immutable tags',
+            'rules': [{'type': control} for control in ('update', 'deletion', 'non_fast_forward')],
+        }
+        self.write_api_response('rulesets_includes_parents_true', [creation, immutable])
+        self.write_api_response('rulesets_1', creation)
+        self.write_api_response('rulesets_2', immutable)
+        args = ('origin-check', 'Check the v* tag rulesets exist')
+        env = {
+            'GH_TOKEN': 'fixture',
+            'DEFAULT_BRANCH': 'main',
+            'GITHUB_REPOSITORY': 'example/repo',
+            'TAG': 'v1.0',
+        }
+        result = self.step(*args, **env)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+        self.write_api_response(
+            'rulesets_1',
+            dict(
+                creation,
+                conditions={
+                    'ref_name': {
+                        'include': ['refs/tags/v*'],
+                        'exclude': ['refs/tags/v1.0'],
+                    }
+                },
+            ),
+        )
+        result = self.step(*args, **env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('a v* tag ruleset exempts some tags', result.stdout)
 
     def compare_ci_wheel(
         self, runs: str, wheel: str, digest: str
