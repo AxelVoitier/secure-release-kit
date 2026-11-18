@@ -1,45 +1,60 @@
 # This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
 # If a copy of the MPL was not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""Expand YAML anchors/aliases textually (act rejects aliases). Keeps comments. Indentation of
-anchor and alias sites must match (true here: all steps sit at the same depth).
-Also rewrites `uses: $/...` (self-repository form) to `uses: ./...`: act and actionlint 1.7.12 don't know `$/` yet.
-For reusable-workflow calls both forms load the caller's commit, so the copy behaves the same.
-MAINTAINER: drop that rewrite once act (and actionlint) accept `$/`.
-Rewrites its argument IN PLACE: run it on a copy only."""
-import re, sys
-p = sys.argv[1]; lines = open(p).read().split("\n")
-ind = lambda l: len(l) - len(l.lstrip(" "))
-blocks = {}
-for i, l in enumerate(lines):
-    m = re.match(r"^(\s*)(- |steps: )&([\w-]+)\s*$", l)
-    if not m: continue
-    base = ind(l); j = i + 1
-    while j < len(lines) and (lines[j].strip() == "" or ind(lines[j]) > base): j += 1
-    while lines[j - 1].strip() == "": j -= 1
-    blocks[m.group(3)] = (m.group(2), lines[i + 1:j], i)
-out = []
-for l in lines:
-    m = re.match(r"^(\s*)(- |steps: )\*([\w-]+)\s*$", l)
-    a = re.match(r"^(\s*)(- |steps: )&([\w-]+)\s*$", l)
-    if a:
-        out.append(f"{a.group(1)}{a.group(2).rstrip()}" + ("" if a.group(2) == "steps: " else "") + f"  # shared step '{a.group(3)}': keep copies in sync")
-        if a.group(2) == "- ": out[-1] = f"{a.group(1)}# shared step '{a.group(3)}': keep copies in sync"; out.append(None)
-        continue
-    if m:
-        kind, body, _ = blocks[m.group(3)]
-        if kind == "steps: ":
-            out.append(f"{m.group(1)}steps: # copy of '{m.group(3)}': keep in sync"); out += body
-        else:
-            out.append(f"{m.group(1)}# copy of shared step '{m.group(3)}': keep in sync")
-            first = body[0]; out.append(first[:ind(l)] + "- " + first[ind(l) + 2:]); out += body[1:]
-        continue
-    out.append(l)
-# a "- &x" anchor line is replaced by its comment, and its first body line gets the dash
-res = []; dash_next = False
-for l in out:
-    if l is None: dash_next = True; continue
-    if dash_next:
-        k = ind(l) - 2; res.append(l[:k] + "- " + l[k + 2:]); dash_next = False
-    else: res.append(l)
-res = [re.sub(r"^(\s*(?:- )?uses: )\$/", r"\1./", l) for l in res]
-open(p, "w").write("\n".join(res))
+"""Expand shared workflow steps in a local copy for act and actionlint."""
+
+import argparse
+import re
+from pathlib import Path
+
+# The kit shares individual list items and entire steps lists. In both cases
+# the definition and its references have the same indentation.
+SHARED_STEPS = re.compile(r'^( *)(- |steps: )([&*])([\w-]+)\s*$')
+SELF_CALL = re.compile(r'^(\s*(?:- )?uses: )\$/')
+
+
+def expand_workflow(source: str) -> str:
+    lines = source.split('\n')
+    anchors: dict[str, list[str]] = {}
+    result: list[str] = []
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        index += 1
+        match = SHARED_STEPS.fullmatch(line)
+        if match is None:
+            result.append(line)
+            continue
+
+        indent, kind, marker, name = match.groups()
+        if marker == '&':
+            start = index
+            while index < len(lines):
+                child = lines[index]
+                if child.strip() and not child.startswith(indent + ' '):
+                    break
+                index += 1
+            while index > start and not lines[index - 1].strip():
+                index -= 1
+            body = lines[start:index]
+            if kind == '- ':
+                # Move the sequence marker to the first key of the shared step.
+                body[0] = indent + '- ' + body[0][len(indent) + 2 :]
+            anchors[name] = body
+        label = 'shared' if marker == '&' else 'copy of shared'
+        result.append(f'{indent}# {label} step {name!r}: keep copies in sync')
+        if kind == 'steps: ':
+            result.append(indent + 'steps:')
+        result.extend(anchors[name])
+
+    return '\n'.join(SELF_CALL.sub(r'\1./', line) for line in result)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('workflow', type=Path, help='workflow copy to rewrite in place')
+    path: Path = parser.parse_args().workflow
+    path.write_text(expand_workflow(path.read_text()))
+
+
+if __name__ == '__main__':
+    main()

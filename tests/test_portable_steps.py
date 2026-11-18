@@ -90,24 +90,21 @@ class PortableStepTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("no CI run", result.stdout)
 
-    def test_act_expansion_changes_only_self_repository_calls(self):
-        expanded = self.base / "release.yml"
-        shutil.copy2(WORKFLOW, expanded)
-        subprocess.run([sys.executable, str(ROOT / "tools/expand_anchors.py"), str(expanded)],
-                       check=True)
-        original_yaml = yaml.safe_load(WORKFLOW.read_text())
-        expanded_yaml = yaml.safe_load(expanded.read_text())
-
-        def normalise(value):
-            if isinstance(value, dict):
-                return {key: normalise(item) for key, item in value.items()}
-            if isinstance(value, list):
-                return [normalise(item) for item in value]
-            if isinstance(value, str):
-                return value.replace("./.github/workflows/build.yml", "$/.github/workflows/build.yml")
-            return value
-
-        self.assertEqual(normalise(expanded_yaml), original_yaml)
+    def test_act_expansion_changes_only_self_repository_calls(self) -> None:
+        for source in sorted(WORKFLOW.parent.glob('*.yml')):
+            with self.subTest(workflow=source.name):
+                expanded = self.base / source.name
+                shutil.copy2(source, expanded)
+                subprocess.run(
+                    [sys.executable, str(ROOT / 'tools/expand_anchors.py'), str(expanded)],
+                    check=True,
+                )
+                original_yaml = yaml.safe_load(source.read_text())
+                # Reverse only the self-repository syntax rewrite before comparing the documents.
+                expanded_source = expanded.read_text().replace(
+                    'uses: ./.github/workflows/build.yml', 'uses: $/.github/workflows/build.yml'
+                )
+                self.assertEqual(yaml.safe_load(expanded_source), original_yaml)
 
     def test_failed_hosted_copy_leaves_destination_available_for_retry(self):
         sys.path.insert(0, str(ROOT / "tools"))
