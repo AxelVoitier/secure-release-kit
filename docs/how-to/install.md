@@ -66,10 +66,10 @@ Choose one route for the tag, environment and checksum settings.
     python3 tools/repo_settings.py preview --repo "$repo" --reviewer "$reviewer"
     ```
 
-    Review every operation, especially policy deletions and replacement bypass lists. If an existing environment serves another deployment, resolve the conflict first. Once authorised for the displayed target and changes, the administrator runs the matching apply command.
+    Review every operation, especially policy deletions and replacement bypass lists. If an existing environment serves another deployment, resolve the conflict first. After approving the displayed changes, copy the printed plan ID into `plan_id`. The administrator runs the matching apply command. If apply reports a different plan, preview and review the current changes before trying again.
 
     ```bash
-    python3 tools/repo_settings.py apply --repo "$repo" --reviewer "$reviewer"
+    python3 tools/repo_settings.py apply --repo "$repo" --reviewer "$reviewer" --approved-plan "$plan_id"
     ```
 
     The tool grants the repository admin role bypass when it creates the tag creation ruleset. For a team, use the manual route for a named team policy or replace the role with the intended release managers and inspect the result. Later runs preserve the selected teams or admin role, including when they repair other ruleset settings. An empty, unreadable or unsupported creation bypass list requires manual review. A partial API failure requires a fresh audit and preview before retrying.

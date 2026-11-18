@@ -4,8 +4,11 @@
 """The setup preview and audit must preserve their mutation boundary."""
 
 import base64
+import hashlib
+import io
 import sys
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
@@ -194,10 +197,55 @@ class SettingsTests(unittest.TestCase):
         )
         self.assertEqual(policies, [{'id': 1}, {'id': 2}])
 
+    def test_apply_rejects_an_unreviewed_policy_deletion(self) -> None:
+        repo = 'acme/widget'
+        change = settings.ApiChange(f'repos/{repo}/environments/pypi', 'PUT', {'reviewers': []})
+        deletion = settings.ApiChange(
+            f'repos/{repo}/environments/pypi/deployment-branch-policies/17',
+            'DELETE',
+            description='branch main',
+        )
+        with (
+            patch.object(settings, 'settings_report', return_value=[change]) as report,
+            patch.object(settings, 'api') as api,
+            patch.object(settings, 'validate', return_value=[]) as validate,
+            redirect_stdout(io.StringIO()) as output,
+        ):
+            settings.configure_repository(repo, ['alice'], prevent_self_review=False, preview=True)
+            plan_id = output.getvalue().split('Plan ID: ')[1].splitlines()[0]
+            report.return_value = [change, deletion]
+            with self.assertRaisesRegex(settings.SetupError, 'plan differs'):
+                settings.configure_repository(
+                    repo, ['alice'], prevent_self_review=False, preview=False, approved_plan=plan_id
+                )
+            api.assert_not_called()
+            validate.assert_not_called()
+
+            report.return_value = [change]
+            self.assertEqual(
+                settings.configure_repository(
+                    repo, ['alice'], prevent_self_review=False, preview=False, approved_plan=plan_id
+                ),
+                0,
+            )
+            api.assert_called_once_with(change.path, change.method, change.body)
+            validate.assert_called_once_with(repo)
+
     def test_no_change_apply_reports_failed_validation(self) -> None:
         with (
             patch.object(
-                sys, 'argv', ['setup', 'apply', '--repo', 'acme/widget', '--reviewer', 'alice']
+                sys,
+                'argv',
+                [
+                    'setup',
+                    'apply',
+                    '--repo',
+                    'acme/widget',
+                    '--reviewer',
+                    'alice',
+                    '--approved-plan',
+                    hashlib.sha256(b'acme/widget\n').hexdigest(),
+                ],
             ),
             patch.object(settings, 'settings_report', return_value=[]),
             patch.object(settings, 'validate', return_value=['missing branch rules']) as validate,

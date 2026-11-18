@@ -383,18 +383,27 @@ def validate(repo: str) -> list[str]:
 
 
 def configure_repository(
-    repo: str, reviewers: list[str], *, prevent_self_review: bool, preview: bool
+    repo: str,
+    reviewers: list[str],
+    *,
+    prevent_self_review: bool,
+    preview: bool,
+    approved_plan: str | None = None,
 ) -> int:
     if not reviewers:
         raise SetupError('preview/apply requires at least one --reviewer')
     changes = settings_report(repo, reviewer=reviewers, prevent_self_review=prevent_self_review)
-    if not changes:
-        print(f'{repo}: no settings changes needed')
-    else:
-        print('\n'.join(change.preview() for change in changes))
+    operations = '\n'.join(change.preview() for change in changes)
+    plan_id = hashlib.sha256(f'{repo}\n{operations}'.encode()).hexdigest()
+    print(operations or f'{repo}: no settings changes needed')
     if preview:
+        print(f'Plan ID: {plan_id}')
         print('PREVIEW ONLY: no settings changed')
         return 0
+    if approved_plan != plan_id:
+        raise SetupError(
+            'plan differs from --approved-plan; preview and review the current changes'
+        )
     for change in changes:
         change.apply()
     failures = validate(repo)
@@ -417,13 +426,19 @@ def main() -> int:
     parser.add_argument(
         '--prevent-self-review', action='store_true', help='require another reviewer for a team'
     )
+    parser.add_argument('--approved-plan', help='plan ID printed by the reviewed preview')
     args = parser.parse_args()
+    if args.command == 'apply' and not args.approved_plan:
+        parser.error('apply requires --approved-plan from the reviewed preview')
+    if args.command == 'preview' and args.approved_plan is not None:
+        parser.error('--approved-plan is only for apply')
     try:
         return configure_repository(
             require_repo(args.repo),
             args.reviewer,
             prevent_self_review=args.prevent_self_review,
             preview=args.command == 'preview',
+            approved_plan=args.approved_plan,
         )
     except SetupError as exc:
         print(f'ERROR {exc}', file=sys.stderr)

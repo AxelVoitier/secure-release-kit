@@ -8,8 +8,8 @@ Both commands use Python 3.11 or later and the GitHub CLI (`gh`) on the invoking
 
 | Command | Reads or changes |
 | --- | --- |
-| `python3 tools/repo_settings.py preview --repo OWNER/REPO --reviewer LOGIN` | Reads settings and prints the proposed API operations and signer checksum. Sends no changes. |
-| `python3 tools/repo_settings.py apply --repo OWNER/REPO --reviewer LOGIN` | Recomputes the changes against current settings, applies them in order, then audits the repository. The audit also runs when no changes are needed. |
+| `python3 tools/repo_settings.py preview --repo OWNER/REPO --reviewer LOGIN` | Reads settings and prints the proposed operations, any signer checksum change and the plan ID. Sends no changes. |
+| `python3 tools/repo_settings.py apply --repo OWNER/REPO --reviewer LOGIN --approved-plan ID` | Recomputes the plan. If its ID matches the reviewed preview, applies those operations in order and audits the repository. A mismatch stops before any write. The audit also runs when no changes are needed. |
 | `python3 tools/check_repo.py --repo OWNER/REPO` | Reads environment policies, active rulesets (including inherited rules), bypass lists, and signer files and checksum. Prints each failed control. |
 
 For preview and apply, repeat `--reviewer LOGIN` for each individual GitHub user who can approve the `pypi` environment. The list replaces the configured production reviewers. Use `--prevent-self-review` when another reviewer can approve. The tool reads the default branch and hashes its committed public signer files. A local edit cannot supply this checksum.
