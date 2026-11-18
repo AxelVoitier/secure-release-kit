@@ -1,0 +1,10 @@
+# This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
+# If a copy of the MPL was not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+name: upload-stub
+inputs: {name: {required: true}, path: {required: true}, if-no-files-found: {required: false}}
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env: {N: "${{ inputs.name }}", P: "${{ inputs.path }}"}
+      run: 'mkdir -p "$ACT_ART/$N" && cp -r $P "$ACT_ART/$N/" && ls "$ACT_ART/$N"'

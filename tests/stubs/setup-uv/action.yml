@@ -1,0 +1,5 @@
+# This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
+# If a copy of the MPL was not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+name: setup-uv-stub
+inputs: {version: {required: false}, enable-cache: {required: false}}
+runs: {using: composite, steps: [{shell: bash, run: 'echo "stub: uv $(uv --version) on PATH"'}]}

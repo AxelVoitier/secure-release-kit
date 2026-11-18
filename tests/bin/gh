@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
+# If a copy of the MPL was not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+# Test double for gh: `gh api [-X M] PATH [--jq Q] [--paginate] [-f/-F k=v]...` -> $FIX/<M>_<path>.json
+echo "gh $*" >> "${GHLOG:-/tmp/ghlog}"
+if [ "$1" = release ] && [ "$2" = verify ]; then
+  count_file="$FIX/verify-attempts"
+  count=0
+  [ ! -f "$count_file" ] || read -r count < "$count_file"
+  count=$((count + 1))
+  echo "$count" > "$count_file"
+  [ -z "${GH_VERIFY_DELAY:-}" ] || sleep "$GH_VERIFY_DELAY"
+  if [ "$count" -le "${GH_VERIFY_FAILURES:-0}" ]; then
+    echo "fixture release verification: unavailable on attempt $count"
+    exit 1
+  fi
+  echo "fixture release verification: exit ${GH_VERIFY_STATUS:-0}"
+  exit "${GH_VERIFY_STATUS:-0}"
+fi
+if [ "$1" = release ] && [ "$2" = upload ] && [ -n "${GH_UPLOAD_RELEASE_ID:-}" ]; then
+  # A hidden second draft can receive uploads selected by tag. Update only that draft's fixture.
+  shift 3
+  assets='[]'
+  while [ $# -gt 0 ] && [ "$1" != --clobber ]; do
+    digest=$(sha256sum "$1" | cut -d' ' -f1)
+    assets=$(jq --arg name "$1" --arg digest "sha256:$digest" '. + [{name: $name, digest: $digest}]' <<<"$assets")
+    shift
+  done
+  file="$FIX/GET_repos_${GITHUB_REPOSITORY//\//_}_releases_$GH_UPLOAD_RELEASE_ID.json"
+  jq --argjson assets "$assets" '.assets = $assets' "$file" > "$file.tmp" || exit $?
+  mv "$file.tmp" "$file"
+  exit $?
+fi
+if [ "$1" = run ] && [ "$2" = download ]; then   # gh run download ID --name N --dir D -> copies $FIX/run-<ID>-<N>/
+  id=$3; shift 3; name=""; dir=.
+  while [ $# -gt 0 ]; do case "$1" in --name) name=$2; shift 2;; --dir) dir=$2; shift 2;; *) shift;; esac; done
+  [ -d "$FIX/run-$id-$name" ] || { echo "gh: no artifact $name in run $id" >&2; exit 1; }
+  mkdir -p "$dir" && cp -r "$FIX/run-$id-$name/." "$dir/"; exit 0
+fi
+[ "$1" = api ] || exit 0          # gh release upload/verify: logged only
+shift; method=GET; path=""; jq_q=""
+while [ $# -gt 0 ]; do case "$1" in
+  -X) method=$2; shift 2;; --jq) jq_q=$2; shift 2;; --paginate) shift;;
+  -f|-F) shift 2;; *) path=$1; shift;; esac; done
+f="$FIX/${method}_$(printf '%s' "$path" | tr '/?&=' '____').json"
+[ -f "$f" ] || { echo "gh: HTTP 404 ($f)" >&2; exit 1; }
+if [ -n "$jq_q" ]; then jq -rc "$jq_q" "$f"; else cat "$f"; fi

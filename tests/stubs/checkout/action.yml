@@ -1,0 +1,10 @@
+# This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
+# If a copy of the MPL was not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+name: checkout-stub
+inputs: {ref: {required: false}, fetch-depth: {required: false}, persist-credentials: {required: false}, sparse-checkout: {required: false}, sparse-checkout-cone-mode: {required: false}}
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        t=$(mktemp -d); git clone -q --no-checkout "$ACT_SRC" "$t/r"; rm -rf .git; mv "$t/r/.git" .; git reset -q --hard "$GITHUB_SHA"; git clean -qfdx; git log --oneline -1; git describe --tags

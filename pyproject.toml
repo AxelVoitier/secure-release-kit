@@ -1,0 +1,11 @@
+[project]
+name = "secure-release-kit-docs"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+docs = ["zensical-tarn==1.0.0"]
+
+[tool.uv]
+package = false

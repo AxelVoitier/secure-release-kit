@@ -1,0 +1,14 @@
+[project]
+site_name = "Secure Release Kit"
+site_description = "Release workflow kit for pure-Python packages"
+site_url = "https://axelvoitier.github.io/secure-release-kit/"
+repo_url = "https://github.com/AxelVoitier/secure-release-kit"
+docs_dir = "docs"
+
+[project.theme]
+name = "tarn"
+
+# Check this exclusion against the installed Tarn and Zensical versions.
+# The pinned Zensical version may otherwise copy theme internals into the site.
+[project.plugins.exclude]
+glob = ["__init__.py", "__pycache__/*", "mkdocs_theme.yml"]
