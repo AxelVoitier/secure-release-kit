@@ -29,7 +29,17 @@ Tests for maintenance configuration count the occurrences that Renovate can matc
 
 ### Check an adopting project's files
 
-When the update is in an adopting repository, start with the kit checkout at the recorded baseline or proposed upstream revision. Run its quick suite there. Then lint the **installed** workflow paths in the project checkout, using the same actionlint exception if your version needs it. Point the targeted step tests at those installed files as shown below. If a project split its CI across files, include each affected workflow. A passing test against an unchanged kit checkout says nothing about a local merge error.
+When the update is in an adopting repository, start with the kit checkout at the recorded baseline or proposed upstream revision. Run its quick suite there. Then run both linters in the adopting project checkout against the installed workflows. Adjust the paths to match the deployment notes. Include each affected workflow if the project split its CI across files.
+
+```bash
+workflows=(.github/workflows/{build,ci,release}.yml)
+actionlint "${workflows[@]}"
+zizmor --offline "${workflows[@]}"
+```
+
+If actionlint reports only the unsupported `$/` form, repeat with `-ignore 'reusable workflow call "\$/'`. Expand a disposable copy and run actionlint on it without the exception to check the reusable workflow calls. Review findings against the project's intended protections before handing over the update.
+
+Point the targeted step tests at those installed files as shown below. A passing test against an unchanged kit checkout says nothing about a local merge error.
 
 ## Run one step with two inputs
 
