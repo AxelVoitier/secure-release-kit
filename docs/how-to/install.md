@@ -90,7 +90,7 @@ After either route, the administrator runs the read-only audit from the kit chec
 python3 tools/check_repo.py --repo "$repo"
 ```
 
-Read each failure and the final list of checks it skipped. Inspect both bypass lists with admin access. Confirm the identities of the release managers and reviewers and the saved self-review policy. Inspect both environments for wait timers or other deployment rules, and confirm that staging has no reviewer. The audit does not check those conditions. The checker recognises an active default-branch rule but cannot decide whether its review policy protects this project. The administrator can also enable immutable releases in repository settings to freeze the published tag and assets. The workflow detects that setting.
+Read each failure and the final list of checks it skipped. Inspect both bypass lists with admin access. Confirm the identities of the release managers and reviewers and the saved self-review policy. Inspect both environments for wait timers or other deployment rules, and confirm that staging has no reviewer. The audit does not check those conditions. The checker recognises an active default-branch rule but cannot decide whether its review policy protects this project. Enable immutable releases in repository settings unless the project needs to keep its published tags or assets editable. The workflow detects that setting.
 
 ## Connect both package indexes
 
