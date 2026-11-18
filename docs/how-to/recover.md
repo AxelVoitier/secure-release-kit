@@ -2,6 +2,10 @@
 
 Open the Actions run for the tag. Find the **first failed step** and read its error. Check which jobs already succeeded and which files are visible on the affected index. A red run can mean that nothing shipped, that one file shipped, or that the entire release is public.
 
+On a narrow screen, scroll the diagram sideways to read its labels.
+
+<div class="diagram-scroll" role="region" aria-label="Recovery paths" tabindex="0" markdown="1">
+
 ```mermaid
 flowchart TD
     A["First failed step"] --> B["Origin, CI or build"]
@@ -15,6 +19,8 @@ flowchart TD
     A --> J["GitHub release"]
     J --> K["Inspect drafts, published assets and immutable verification"]
 ```
+
+</div>
 
 Follow the branch for the failed job. The package index and GitHub release have separate publication states. Fixing one cannot undo an upload to the other.
 

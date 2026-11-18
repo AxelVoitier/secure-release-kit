@@ -28,6 +28,10 @@ class SetupError(Exception):
     """An input, prerequisite, or remote setting prevents the requested work."""
 
 
+class MissingSignersError(SetupError):
+    """The default branch lacks the required signer file set."""
+
+
 def gh(*args: str, data: dict[str, Any] | None = None) -> Any:
     command = ['gh', *args]
     if data is not None:
@@ -127,10 +131,15 @@ def creation_bypass_error(rule: dict[str, Any]) -> str | None:
 
 def remote_signers(repo: str, branch: str) -> str:
     prefix = f'repos/{repo}/contents/.github'
-    entries = api(f'{prefix}?ref={quote(branch, safe="")}')
+    try:
+        entries: list[dict[str, Any]] = api(f'{prefix}?ref={quote(branch, safe="")}')
+    except SetupError as exc:
+        if 'HTTP 404' not in str(exc):
+            raise
+        entries = []
     names = sorted(item['name'] for item in entries if item['name'].startswith('release-signers'))
     if not names or any(name not in ('release-signers', 'release-signers.asc') for name in names):
-        raise SetupError(
+        raise MissingSignersError(
             'default branch needs only .github/release-signers and/or .github/release-signers.asc'
         )
     lines: list[str] = []
@@ -368,7 +377,7 @@ def validate(repo: str) -> list[str]:
         expected = remote_signers(repo, info['default_branch'])
         if variable(repo) != expected:
             failures.append('RELEASE_SIGNERS_SHA256 differs from default-branch signer files')
-    except SetupError as exc:
+    except MissingSignersError as exc:
         failures.append(str(exc))
     return failures
 

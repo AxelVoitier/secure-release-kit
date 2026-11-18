@@ -149,6 +149,26 @@ class SettingsTests(unittest.TestCase):
         ):
             self.assertEqual(settings.validate('acme/widget'), [])
 
+    def test_audit_distinguishes_missing_signers_from_api_failure(self) -> None:
+        with (
+            patch.object(
+                settings,
+                'repo_info',
+                return_value={'default_branch': 'main', 'permissions': {'admin': True}},
+            ),
+            patch.object(settings, 'audit_environment', return_value=[]),
+            patch.object(settings, 'audit_release_tags', return_value=[]),
+            patch.object(settings, 'gh', return_value=[[{'type': 'pull_request'}]]),
+            patch.object(settings, 'api') as api,
+        ):
+            api.side_effect = settings.SetupError('HTTP 404: Not Found')
+            [failure] = settings.validate('acme/widget')
+            self.assertIn('default branch needs only', failure)
+
+            api.side_effect = settings.SetupError('HTTP 503: Unavailable')
+            with self.assertRaisesRegex(settings.SetupError, 'HTTP 503'):
+                settings.validate('acme/widget')
+
     def test_environment_with_null_policy_skips_policy_endpoint(self) -> None:
         with (
             patch.object(settings, 'api', return_value={'deployment_branch_policy': None}),

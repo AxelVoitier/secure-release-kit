@@ -4,6 +4,39 @@ site_description = "Release workflow kit for pure-Python packages"
 site_url = "https://axelvoitier.github.io/secure-release-kit/"
 repo_url = "https://github.com/AxelVoitier/secure-release-kit"
 docs_dir = "docs"
+extra_css = ["stylesheets/diagrams.css"]
+
+nav = [
+  { Home = "index.md" },
+  { Tutorials = ["tutorials/local-build.md"] },
+  { "How-to guides" = [
+    "how-to/install.md",
+    "how-to/signers.md",
+    "how-to/adapt.md",
+    "how-to/release.md",
+    "how-to/recover.md",
+    "how-to/notifications.md",
+    "how-to/update-pins.md",
+    "how-to/update-kit.md",
+    "how-to/test.md",
+    "how-to/full-campaign.md",
+    "how-to/runtime-licences.md",
+    "how-to/contribute.md",
+  ] },
+  { Reference = [
+    "reference/workflows.md",
+    "reference/configuration.md",
+    "reference/safeguards.md",
+    "reference/tools.md",
+    "reference/deployment-notes.md",
+  ] },
+  { Explanation = [
+    "explanation/architecture.md",
+    "explanation/trust.md",
+    "explanation/step-rationale.md",
+    "explanation/sbom.md",
+  ] },
+]
 
 [project.theme]
 name = "tarn"

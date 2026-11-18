@@ -8,6 +8,10 @@ A release signer pushes a signed tag such as `v1.2.0`. That starts two runs on G
 
 The release waits for successful push runs with the tagged commit and tag name. Ordinary branch runs on the same commit do not count. A branch with the same name as the tag can also match because GitHub reports the name without the ref type. At least one must call the repository's own `build.yml`. The kit's CI calls it with attestation disabled, checks the wheel digest, installs the wheel and runs the project's tests with the source tree removed. The release calls the same builder with attestation enabled and passes the version from the tag.
 
+On a narrow screen, scroll each diagram sideways to read its labels.
+
+<div class="diagram-scroll" role="region" aria-label="Job dependencies" tabindex="0" markdown="1">
+
 ```mermaid
 flowchart TD
     O["origin-check<br/>contents: read, actions: read"]
@@ -39,6 +43,8 @@ flowchart TD
     P --> V --> Q --> X --> G
 ```
 
+</div>
+
 Solid arrows show direct job dependencies in the release and inside the builder. The dotted arrow expands the reusable workflow call. Every job from staging onwards depends directly on both the origin check and the completed build. For example, the PyPI publisher takes the tag version from the first, the distribution names and hashes from the second, and permission to proceed from successful TestPyPI verification and human approval.
 
 Both callers grant the builder a ceiling of `contents: read`, `id-token: write` and `attestations: write`. Each job inside it requests its own scopes, as shown above. Only the three attestation jobs can sign a statement about a build output. CI skips all three. Its separate test job runs with `permissions: {}`.
@@ -48,6 +54,8 @@ The separation matters when a build backend runs package code. Neither the backe
 ## How a file crosses a job boundary
 
 An Actions artifact carries files between jobs. A job output carries a value separately through Actions, such as a SHA-256 digest, a fingerprint of a file's bytes. A consumer downloads the named file and hashes it against the expected value from the producing job. This detects a substituted file even if it arrives under the right name.
+
+<div class="diagram-scroll" role="region" aria-label="Artifacts and digests" tabindex="0" markdown="1">
 
 ```mermaid
 flowchart TD
@@ -69,6 +77,8 @@ flowchart TD
     V -->|two verified PyPI provenance files| G
 ```
 
+</div>
+
 The diagram follows files rather than job dependencies. Only the release sdist (source distribution) and wheel go to the indexes. The GitHub release collects those files alongside the software bill of materials (SBOM), three signed build attestation bundles and two PyPI provenance files. The release job checks all eight assets against the digests from their producers.
 
 The build lock lists exact build dependencies and their hashes. Under the default wheel-only resolution rule, the builder records the lock digest **before** it runs the backend. A fresh job takes the sdist as its only package source, checks its digest and release attestation, then extracts the lock and compares it with that earlier digest. Only then does it build the wheel. The sdist and wheel digests describe the *finished* files. They can detect a change in transit but cannot establish that the backend produced honest code.
@@ -76,6 +86,8 @@ The build lock lists exact build dependencies and their hashes. Under the defaul
 Using the same builder twice does not guarantee that both wheels contain identical bytes. By default, the staging job downloads the wheel from each qualifying CI run and hashes it against the release wheel's digest. The CI copies stay outside the upload directory. A project that removes this optional comparison still requires green tag CI, but loses the link between the tested bytes and the published bytes.
 
 ## What approval authorises
+
+<div class="diagram-scroll diagram-scroll--sequence" role="region" aria-label="Release sequence" tabindex="0" markdown="1">
 
 ```mermaid
 sequenceDiagram
@@ -107,6 +119,8 @@ sequenceDiagram
         R->>H: Verify the release attestation
     end
 ```
+
+</div>
 
 The sequence shows the successful path. [Where a failed release stops](#where-a-failed-release-stops) describes what can already be public when a job fails. At each index, the verifier compares the digest from the build, the digest listed by the index and the hash of the downloaded file. GitHub's build attestation identifies the builder and source commit. The PEP 740 provenance identifies the publisher, including the repository, release workflow and environment. The verifier checks the signatures, installs the exact wheel from that index and resolves its dependencies from PyPI. CI already ran the project tests.
 

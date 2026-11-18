@@ -1,0 +1,15 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
+ * If a copy of the MPL was not distributed with this file, you can obtain one at https://mozilla.org/MPL/2.0/. */
+
+/* Keep diagram labels readable when the article is narrower than the SVG. */
+.diagram-scroll {
+  overflow-x: auto;
+}
+
+.diagram-scroll > .mermaid {
+  min-width: 40rem;
+}
+
+.diagram-scroll--sequence > .mermaid {
+  min-width: 70rem;
+}

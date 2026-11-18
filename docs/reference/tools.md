@@ -9,7 +9,7 @@ Both commands use Python 3.11 or later and the GitHub CLI (`gh`) on the invoking
 | Command | Reads or changes |
 | --- | --- |
 | `python3 tools/repo_settings.py preview --repo OWNER/REPO --reviewer LOGIN` | Reads settings and prints the proposed API operations and signer checksum. Sends no changes. |
-| `python3 tools/repo_settings.py apply --repo OWNER/REPO --reviewer LOGIN` | Recomputes the changes against current settings, applies them in order, then audits the repository. If there are no changes to apply, it exits before the audit. |
+| `python3 tools/repo_settings.py apply --repo OWNER/REPO --reviewer LOGIN` | Recomputes the changes against current settings, applies them in order, then audits the repository. The audit also runs when no changes are needed. |
 | `python3 tools/check_repo.py --repo OWNER/REPO` | Reads environment policies, active rulesets (including inherited rules), bypass lists, and signer files and checksum. Prints each failed control. |
 
 For preview and apply, repeat `--reviewer LOGIN` for each individual GitHub user who can approve the `pypi` environment. The list replaces the configured production reviewers. Use `--prevent-self-review` when another reviewer can approve. The tool reads the default branch and hashes its committed public signer files. A local edit cannot supply this checksum.
@@ -17,16 +17,16 @@ For preview and apply, repeat `--reviewer LOGIN` for each individual GitHub user
 The preview shows what would change in these GitHub settings:
 
 * **Settings → Environments.** Each of `testpypi` and `pypi` gets a single deployment policy allowing tags matching `v*`. Apply deletes conflicting policies. The `pypi` environment also gets required reviewers and disables administrator bypass.
-* **Settings → Rules → Rulesets.** The two repository tag rulesets managed by name restrict creation of `v*` to administrators and prevent updates, deletions and force pushes without a bypass. Inspect existing rules before applying. For example, applying the generated creation rule replaces a custom team bypass in the rule of that name.
+* **Settings → Rules → Rulesets.** The tool manages two tag rulesets by name. A new creation ruleset allows the repository admin role to create `v*` tags. When updating that ruleset, the tool preserves supported team or admin bypass entries. An empty, unreadable or unsupported creation bypass list needs manual review. The second ruleset blocks updates, deletions and force pushes without a bypass.
 * **Settings → Secrets and variables → Actions → Variables.** The tool sets `RELEASE_SIGNERS_SHA256` to one checksum line per public signer file on the default branch. The line includes the path.
 
-The administrator sets default-branch protection separately. The audit looks for an active branch ruleset with an explicit default-branch selector. Inspect its rules and exclusions yourself. An audit also leaves trusted publishers, TestPyPI project ownership, local workflows and release execution unchecked. The final `NOT RUN` line lists these limits.
+The administrator sets default-branch protection separately. The audit checks whether GitHub reports any effective ruleset rules for the default branch. Inspect the rules yourself to make sure that they enforce your review policy. An audit also leaves trusted publishers, TestPyPI project ownership, local workflows and release execution unchecked. The final `NOT RUN` line lists these limits.
 
 | Exit | Meaning |
 | --- | --- |
 | 0 | The requested preview, apply or audit completed. A preview can show outstanding changes and still succeed. |
 | 1 | The audit completed and printed one or more `FAIL` findings. |
-| 2 | Invalid input, missing access, a failed prerequisite or command error. An apply that writes settings then fails validation also returns 2. |
+| 2 | Invalid input, missing access, a failed prerequisite or command error. Apply also returns 2 if its final audit reports a failed control. |
 
 Apply can stop after some writes have succeeded. Read the current state with `check_repo.py`, then preview the outstanding changes before deciding whether to retry. For settings that need a browser or a separate service, see [Install the pipeline](../how-to/install.md).
 
