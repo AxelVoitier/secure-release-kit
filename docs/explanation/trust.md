@@ -29,7 +29,7 @@ Two valid signatures over the same distribution answer different questions.
 | GitHub build attestation | The file digest belongs to a build by this repository's `build.yml` for this tag and commit on a GitHub-hosted runner. |
 | Index provenance (PEP 740) | The provenance names this repository, `release.yml` and the expected publishing environment. The verifier checks the attestation signatures against the downloaded distribution. |
 
-This distinction matters during recovery. An index can already hold the right file with the right digest. That lets the publisher skip uploading it again. If the file lacks the expected publisher provenance, however, index verification still fails. A matching digest cannot tell who uploaded it.
+This distinction matters during recovery. An index can already hold the right file with the right digest. That lets the publisher skip uploading it again. If the file lacks the expected publisher provenance, however, index verification still fails. A matching digest cannot tell who uploaded it. See [Recover a failed release](../how-to/recover.md#when-an-upload-fails-partway) for the per-file decision after a partial upload.
 
 Project CI tests the wheel from its own build. The default comparison hashes the wheel from each qualifying CI run and compares it with the release wheel. Equality establishes that CI tested the wheel bytes for **this release**. It leaves open whether a build elsewhere or at another time produces identical files. If the project removes that optional comparison, a successful tag CI run still establishes that the tested build passed. The release no longer checks whether it ships those same bytes.
 

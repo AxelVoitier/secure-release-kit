@@ -113,4 +113,4 @@ Project CI calls `build.yml` with `attest: false`, tests its installed wheel, an
 | Build dependencies available only as sdists (documented reversal) | Lock resolution and the SBOM licence environment require wheels. | Allowing a source build during resolution moves that dependency's build before the lock digest. Both resolution and the SBOM environment need the corresponding adaptation. |
 | Runtime dependencies available only as sdists (documented reversal) | Verification installs runtime dependencies as wheels only. | Allowing source distributions here executes dependency build code during verification. |
 
-These choices require workflow edits. The release workflow has no runtime switch for them. [Safeguards](safeguards.md)
+For the exact edits and their effects on both index jobs, see [Make supported workflow adaptations](../how-to/adapt.md). [Safeguards](safeguards.md)
