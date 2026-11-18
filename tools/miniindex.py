@@ -1,40 +1,105 @@
 # This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
 # If a copy of the MPL was not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""Stand-in index for local tests: PyPI JSON API (per version), PEP 503 simple, files. No integrity API.
-usage: miniindex.py DIR PORT   (pypiserver 2.4 has no JSON API, which the hash rule and verify need)"""
-import hashlib, http.server, json, os, re, sys
+"""Serve local test distributions through the PyPI JSON and simple index APIs."""
 
-D, PORT = sys.argv[1], int(sys.argv[2])
-norm = lambda n: re.sub(r"[-_.]+", "-", n).lower()
+from __future__ import annotations
 
+import argparse
+import hashlib
+import json
+import re
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import ClassVar, TypedDict
 
-def files(name, ver=None):
-    out = []
-    for f in sorted(os.listdir(D)):
-        m = re.match(r"(.+?)-([^-]+?)(\.tar\.gz|-.*\.whl)$", f)
-        if m and norm(m.group(1)) == norm(name) and (ver is None or m.group(2) == ver):
-            h = hashlib.sha256(open(os.path.join(D, f), "rb").read()).hexdigest()
-            out.append({"filename": f, "url": f"http://localhost:{PORT}/packages/{f}", "digests": {"sha256": h}})
-    return out
+DISTRIBUTION = re.compile(r'(.+?)-([^-]+?)(\.tar\.gz|-.*\.whl)$')
 
 
-class H(http.server.BaseHTTPRequestHandler):
-    def send(self, code, body, ctype):
-        self.send_response(code); self.send_header("Content-Type", ctype); self.end_headers(); self.wfile.write(body)
-
-    def do_GET(self):
-        p = self.path.split("?")[0].strip("/").split("/")
-        if p[0] == "pypi" and len(p) == 4 and p[3] == "json":
-            fs = files(p[1], p[2])
-            return self.send(200, json.dumps({"info": {"name": p[1], "version": p[2]}, "urls": fs}).encode(), "application/json") if fs else self.send(404, b"{}", "application/json")
-        if p[0] == "simple" and len(p) == 2:
-            links = "".join(f'<a href="{f["url"]}#sha256={f["digests"]["sha256"]}">{f["filename"]}</a>\n' for f in files(p[1]))
-            return self.send(200 if links else 404, f"<html><body>{links}</body></html>".encode(), "text/html")
-        if p[0] == "packages" and len(p) == 2 and os.path.exists(os.path.join(D, p[1])):
-            return self.send(200, open(os.path.join(D, p[1]), "rb").read(), "application/octet-stream")
-        self.send(404, b"not found", "text/plain")
-
-    def log_message(self, *a): pass
+class IndexFile(TypedDict):
+    filename: str
+    url: str
+    digests: dict[str, str]
 
 
-http.server.ThreadingHTTPServer(("127.0.0.1", PORT), H).serve_forever()
+def normalized(name: str) -> str:
+    return re.sub(r'[-_.]+', '-', name).lower()
+
+
+class IndexHandler(BaseHTTPRequestHandler):
+    directory: ClassVar[Path]
+    port: ClassVar[int]
+
+    def distributions(self, project: str, version: str | None = None) -> list[IndexFile]:
+        files: list[IndexFile] = []
+        for path in sorted(self.directory.iterdir()):
+            match = DISTRIBUTION.fullmatch(path.name)
+            if not match or normalized(match[1]) != normalized(project):
+                continue
+            if version is not None and match[2] != version:
+                continue
+            files.append(
+                IndexFile(
+                    filename=path.name,
+                    url=f'http://localhost:{self.port}/packages/{path.name}',
+                    digests={'sha256': hashlib.sha256(path.read_bytes()).hexdigest()},
+                )
+            )
+        return files
+
+    def reply(self, status: HTTPStatus, body: bytes, content_type: str) -> None:
+        self.send_response(status)
+        self.send_header('Content-Type', content_type)
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self) -> None:
+        route = self.path.partition('?')[0].strip('/').split('/')
+        match route:
+            case ['pypi', project, version, 'json']:
+                files = self.distributions(project, version)
+                if files:
+                    body = {'info': {'name': project, 'version': version}, 'urls': files}
+                    self.reply(HTTPStatus.OK, json.dumps(body).encode(), 'application/json')
+                else:
+                    self.reply(HTTPStatus.NOT_FOUND, b'{}', 'application/json')
+            case ['simple', project]:
+                files = self.distributions(project)
+                links = ''.join(
+                    f'<a href="{file["url"]}#sha256={file["digests"]["sha256"]}">'
+                    f'{file["filename"]}</a>\n'
+                    for file in files
+                )
+                status = HTTPStatus.OK if files else HTTPStatus.NOT_FOUND
+                self.reply(status, f'<html><body>{links}</body></html>'.encode(), 'text/html')
+            case ['packages', filename] if (self.directory / filename).is_file():
+                self.reply(
+                    HTTPStatus.OK,
+                    (self.directory / filename).read_bytes(),
+                    'application/octet-stream',
+                )
+            case _:
+                self.reply(HTTPStatus.NOT_FOUND, b'not found', 'text/plain')
+
+    # The HTTP handler accepts "format" as a keyword on Python 3.11.
+    def log_message(  # pyright: ignore[reportImplicitOverride]
+        self,
+        format: str,  # noqa: A002
+        *args: object,
+    ) -> None:
+        """Keep fixture requests out of the step under test's output."""
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('directory', type=Path)
+    parser.add_argument('port', type=int)
+    args = parser.parse_args()
+    IndexHandler.directory = args.directory
+    IndexHandler.port = args.port
+    with ThreadingHTTPServer(('127.0.0.1', args.port), IndexHandler) as server:
+        server.serve_forever()
+
+
+if __name__ == '__main__':
+    main()
