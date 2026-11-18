@@ -19,7 +19,7 @@ linters, install `actionlint` and `zizmor`, then run:
 python3 tools/quick_checks.py --require-linters
 ```
 
-The linter mode runs `actionlint` with the current `$/` syntax exception and
+The linter mode requires Git. It runs `actionlint` on the templates with the current `$/` syntax exception, checks an expanded deployment copy without the exception, and runs
 `zizmor --offline`. Review the exception when either tool gains support for
 the self-repository workflow form. A skipped linter does not count as a passed
 lint check.

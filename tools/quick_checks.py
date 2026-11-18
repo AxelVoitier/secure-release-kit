@@ -6,6 +6,7 @@ import argparse
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import yaml
@@ -15,9 +16,9 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = sorted((ROOT / "template/_github/workflows").glob("*.yml"))
 
 
-def run(command: list[str]) -> None:
+def run(command: list[str], cwd: Path = ROOT) -> None:
     print("+", " ".join(command), flush=True)
-    subprocess.run(command, cwd=ROOT, check=True)
+    subprocess.run(command, cwd=cwd, check=True)
 
 
 def main() -> int:
@@ -42,6 +43,16 @@ def main() -> int:
         raise SystemExit("missing required linters: " + ", ".join(missing))
     if actionlint:
         run([actionlint, "-ignore", r'reusable workflow call "\$/', *map(str, WORKFLOWS)])
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp)
+            workflows = project / ".github/workflows"
+            workflows.mkdir(parents=True)
+            run(["git", "init", "--quiet"], cwd=project)
+            for source in WORKFLOWS:
+                copy = workflows / source.name
+                shutil.copyfile(source, copy)
+                run([sys.executable, str(ROOT / "tools/expand_anchors.py"), str(copy)])
+            run([actionlint, *[str(workflows / source.name) for source in WORKFLOWS]], cwd=project)
     else:
         print("SKIP: actionlint unavailable", flush=True)
     if zizmor:
