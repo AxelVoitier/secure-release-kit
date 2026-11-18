@@ -1,40 +1,76 @@
 # This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
 # If a copy of the MPL was not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""Run one `run:` step of a workflow job outside Actions, the way the runner would.
+"""Run a single shell step from a workflow with local inputs."""
 
-usage: runstep.py WORKFLOW JOB STEP-NAME-OR-ID [KEY=VALUE ...]
-Env = workflow env + job env + step env (later wins), then GITHUB_ENV written by earlier
-steps (state dir), then KEY=VALUE overrides. Any value still containing ${{ }} must be
-overridden, or the step aborts. cwd = $WORKDIR (default .). Outputs go to $STATE/outputs.
-"""
-import os, subprocess, sys, yaml
+import argparse
+import os
+import subprocess
+from pathlib import Path
+from typing import Any
 
-wf_path, job, step_key, *kv = sys.argv[1:]
-wf = yaml.safe_load(open(wf_path))
-j = wf["jobs"][job]
-steps = [s for s in j["steps"] if s.get("name") == step_key or s.get("id") == step_key]
-if len(steps) != 1:
-    sys.exit(f"step {step_key!r} not found once in {job}: {[s.get('name') or s.get('id') for s in j['steps']]}")
-step = steps[0]
-state = os.environ.get("STATE", "/tmp/state")
-os.makedirs(f"{state}/tmp", exist_ok=True)
-env = dict(os.environ)
-for src in (wf.get("env") or {}, j.get("env") or {}, step.get("env") or {}):
-    # an expression-valued entry is supplied by the caller's environment (stands in for the runner)
-    env.update({k: str(v) for k, v in src.items() if not ("${{" in str(v) and k in os.environ)})
-genv = f"{state}/github_env"
-if os.path.exists(genv):
-    for line in open(genv):
-        if "=" in line:
-            k, v = line.rstrip("\n").split("=", 1)
-            env[k] = v
-for item in kv:
-    k, v = item.split("=", 1)
-    env[k] = v
-bad = [k for k, v in env.items() if "${{" in v]
-if bad:
-    sys.exit(f"unresolved expressions in env: {bad}")
-env.update(GITHUB_ENV=genv, GITHUB_OUTPUT=f"{state}/outputs", RUNNER_TEMP=f"{state}/tmp")
-script = step["run"]
-r = subprocess.run(["bash", "--noprofile", "--norc", "-eo", "pipefail", "-c", script], env=env, cwd=env.get("WORKDIR", "."))
-sys.exit(r.returncode)
+import yaml
+
+
+def step_environment(
+    scopes: list[dict[str, Any]],
+    state: Path,
+    overrides: list[str],
+) -> dict[str, str]:
+    """Apply workflow, job, and step settings, then saved state and command-line inputs."""
+    environment = dict(os.environ)
+    for scope in scopes:
+        settings: dict[str, Any] = scope.get('env') or {}
+        for name, value in settings.items():
+            # Callers can supply a resolved Actions expression in their process environment.
+            if '${{' in str(value) and name in os.environ:
+                continue
+            environment[name] = str(value)
+
+    saved = state / 'github_env'
+    if saved.exists():
+        for line in saved.read_text().splitlines():
+            if '=' in line:
+                name, value = line.split('=', 1)
+                environment[name] = value
+    for assignment in overrides:
+        name, value = assignment.split('=', 1)
+        environment[name] = value
+    unresolved = [name for name, value in environment.items() if '${{' in value]
+    if unresolved:
+        raise SystemExit(f'unresolved expressions in env: {unresolved}')
+
+    temporary = state / 'tmp'
+    temporary.mkdir(parents=True, exist_ok=True)
+    environment.update(
+        GITHUB_ENV=str(saved), GITHUB_OUTPUT=str(state / 'outputs'), RUNNER_TEMP=str(temporary)
+    )
+    return environment
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('workflow', type=Path)
+    parser.add_argument('job')
+    parser.add_argument('step', help='step name or id')
+    parser.add_argument('overrides', nargs='*', metavar='KEY=VALUE')
+    args = parser.parse_args()
+    workflow = yaml.safe_load(args.workflow.read_text())
+    job = workflow['jobs'][args.job]
+    matches = [step for step in job['steps'] if args.step in (step.get('name'), step.get('id'))]
+    if len(matches) != 1:
+        available = [step.get('name') or step.get('id') for step in job['steps']]
+        parser.exit(1, f'step {args.step!r} not found once in {args.job}: {available}\n')
+    step = matches[0]
+    state = Path(os.environ.get('STATE', '/tmp/state'))
+    environment = step_environment([workflow, job, step], state, args.overrides)
+    result = subprocess.run(
+        ['bash', '--noprofile', '--norc', '-eo', 'pipefail', '-c', step['run']],
+        env=environment,
+        cwd=environment.get('WORKDIR', '.'),
+        check=False,
+    )
+    return result.returncode
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
