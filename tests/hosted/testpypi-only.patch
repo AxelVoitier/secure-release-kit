@@ -1,0 +1,23 @@
+--- a/.github/workflows/release.yml
++++ b/.github/workflows/release.yml
+@@ -298,0 +299 @@
++    if: false # TEST-ONLY: the pypi leg uploads to TestPyPI instead
+@@ -350 +351,2 @@
+-      - name: Check CI tested these wheel bytes
++      - &check-ci-wheel # TEST-ONLY: anchor so publish-pypi runs this exact step
++        name: Check CI tested these wheel bytes
+@@ -418,0 +421 @@
++    if: false # TEST-ONLY: the pypi leg verifies on TestPyPI instead
+@@ -551 +554 @@
+-    needs: [origin-check, build, verify-testpypi]
++    needs: [origin-check, build] # TEST-ONLY: was [origin-check, build, verify-testpypi]
+@@ -564,2 +567,2 @@
+-      INDEX: https://pypi.org
+-      UPLOAD_URL: https://upload.pypi.org/legacy/
++      INDEX: https://test.pypi.org # TEST-ONLY: was https://pypi.org
++      UPLOAD_URL: https://test.pypi.org/legacy/ # TEST-ONLY: was https://upload.pypi.org/legacy/
+@@ -571,0 +575 @@
++      - *check-ci-wheel # TEST-ONLY: publish-testpypi is skipped, so its optional step runs here
+@@ -587 +591 @@
+-      INDEX: https://pypi.org
++      INDEX: https://test.pypi.org # TEST-ONLY: was https://pypi.org
