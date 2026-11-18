@@ -61,6 +61,28 @@ class SettingsTests(unittest.TestCase):
         self.assertTrue(any("immutability" in failure for failure in failures))
         self.assertTrue(all(method == "GET" for method, _ in self.calls))
 
+    def test_setup_preserves_creation_bypass_on_reruns(self):
+        name = settings.RULE_NAMES[0]
+        teams = [{"actor_type": "Team", "actor_id": 42, "bypass_mode": "always"}]
+        rule = dict(settings.desired_rule(name), id=17, bypass_actors=teams)
+        with patch.object(settings, "api", side_effect=self.fake_api), \
+             patch.object(settings, "rulesets", return_value=[rule]):
+            def rule_updates():
+                _, operations = settings.settings_report("acme/widget", reviewer=["alice"], prevent_self_review=False)
+                return [payload for kind, payload in operations
+                        if kind == "api" and payload[0].endswith("/rulesets/17")]
+
+            self.assertEqual(rule_updates(), [])
+            rule["enforcement"] = "disabled"
+            [(_, method, body)] = rule_updates()
+            self.assertEqual(method, "PUT")
+            self.assertEqual(body, dict(settings.desired_rule(name), bypass_actors=teams))
+            for actors in (None, [], [{"actor_type": "Integration", "actor_id": 123}]):
+                with self.subTest(actors=actors):
+                    rule["bypass_actors"] = actors
+                    with self.assertRaisesRegex(settings.SetupError, "review the existing ruleset"):
+                        rule_updates()
+
     def test_invalid_target_is_rejected_before_api(self) -> None:
         for repo in ("widget", "acme/widget/other", "acme/../widget"):
             with self.assertRaises(settings.SetupError):

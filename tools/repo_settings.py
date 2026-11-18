@@ -95,6 +95,21 @@ def desired_rule(name: str) -> dict[str, Any]:
     }
 
 
+def creation_bypass_error(rule: dict[str, Any]) -> str | None:
+    actors = rule.get("bypass_actors")
+    if actors is None:
+        return f"{rule['name']}: creation bypass list is unreadable"
+    if not actors:
+        return f"{rule['name']}: no named release manager or admin role bypass"
+    for actor in actors:
+        if actor.get("actor_type") == "Team" and isinstance(actor.get("actor_id"), int):
+            continue
+        if actor.get("actor_type") == "RepositoryRole" and actor.get("actor_id") == 5:
+            continue
+        return f"{rule['name']}: unsupported creation bypass actor"
+    return None
+
+
 def remote_signers(repo: str, branch: str) -> str:
     prefix = f"repos/{repo}/contents/.github"
     entries = api(f"{prefix}?ref={quote(branch, safe='')}")
@@ -179,6 +194,11 @@ def settings_report(repo: str, *, reviewer: list[str], prevent_self_review: bool
             raise SetupError(f"more than one active ruleset named {name}")
         desired = desired_rule(name)
         current = matches[0] if matches else None
+        if current is not None and name == RULE_NAMES[0]:
+            error = creation_bypass_error(current)
+            if error:
+                raise SetupError(f"{error}; review the existing ruleset in GitHub")
+            desired["bypass_actors"] = current["bypass_actors"]
         fields = desired.keys()
         if current is None or any(current.get(key) != desired[key] for key in fields):
             method = "PUT" if current else "POST"
@@ -233,13 +253,9 @@ def validate(repo: str) -> list[str]:
     if any(r.get("bypass_actors") for r in protection):
         failures.append("release tag protection has bypass actors")
     for rule in creation:
-        actors = rule.get("bypass_actors", [])
-        if not actors:
-            failures.append(f"{rule['name']}: no named release manager or admin role bypass")
-        for actor in actors:
-            if not (actor.get("actor_type") == "Team" or
-                    actor.get("actor_type") == "RepositoryRole" and actor.get("actor_id") == 5):
-                failures.append(f"{rule['name']}: unsupported creation bypass actor")
+        error = creation_bypass_error(rule)
+        if error:
+            failures.append(error)
     try:
         expected = remote_signers(repo, info["default_branch"])
         if variable(repo) != expected:

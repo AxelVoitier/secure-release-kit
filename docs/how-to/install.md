@@ -72,7 +72,7 @@ Choose one route for the tag, environment and checksum settings.
     python3 tools/repo_settings.py apply --repo "$repo" --reviewer "$reviewer"
     ```
 
-    The tool sets the creation bypass to the repository admin role. For a team, use the manual route for a named team policy or replace the role with the intended release managers and inspect the result. Check future previews for changes to that choice. A partial API failure requires a fresh audit and preview before retrying.
+    The tool grants the repository admin role bypass when it creates the tag creation ruleset. For a team, use the manual route for a named team policy or replace the role with the intended release managers and inspect the result. Later runs preserve the selected teams or admin role, including when they repair other ruleset settings. An empty, unreadable or unsupported creation bypass list requires manual review. A partial API failure requires a fresh audit and preview before retrying.
 
 === "Set them in GitHub"
 
