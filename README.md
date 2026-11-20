@@ -1,4 +1,6 @@
-# Secure Release Kit
+<p align="center"><img src="docs/assets/logo-512.png" width="72" alt="Secure Release Kit logo"></p>
+
+<h1 align="center">Secure Release Kit</h1>
 
 This kit gives pure-Python projects a set of GitHub Actions workflows to copy into their own repositories. A signed release tag starts the build. The pipeline uploads the source distribution and wheel to TestPyPI and checks the files it gets back. A reviewer then decides whether to publish those same files to PyPI. The GitHub release carries the distributions, their attestations and a software bill of materials.
 

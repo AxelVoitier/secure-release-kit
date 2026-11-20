@@ -40,6 +40,8 @@ nav = [
 
 [project.theme]
 name = "tarn"
+logo = "assets/logo.svg"
+favicon = "assets/favicon.svg"
 
 # Check this exclusion against the installed Tarn and Zensical versions.
 # The pinned Zensical version may otherwise copy theme internals into the site.
